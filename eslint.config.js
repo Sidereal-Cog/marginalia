@@ -11,7 +11,10 @@ export default tseslint.config(
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        'chrome': 'on'
+      },
     },
     plugins: {
       'react-hooks': reactHooks,
@@ -23,6 +26,9 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      "semi": [ "error", "always" ],
+      "no-unused-vars": "warn",
+      "plugin:@typescript-eslint/recommended": "warn"
     },
   },
 )

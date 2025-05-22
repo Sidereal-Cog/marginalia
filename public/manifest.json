@@ -1,0 +1,22 @@
+{
+  "name": "Marginalia",
+  "description": "Base Level Extension",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": [
+    "sidePanel",
+    "tabs",
+    "activeTab",
+    "storage"
+  ],
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_icon": "assets/placeholder.png",
+    "default_title": "Open side panel"
+  }
+}
