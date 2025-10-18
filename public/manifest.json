@@ -1,22 +1,27 @@
 {
   "name": "Marginalia",
-  "description": "Base Level Extension",
+  "description": "Context-aware notes for the web",
   "version": "1.0",
   "manifest_version": 3,
   "permissions": [
     "sidePanel",
     "tabs",
-    "activeTab",
     "storage"
+  ],
+  "host_permissions": [
+    "https://*.firebaseapp.com/*",
+    "https://*.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
   ],
   "side_panel": {
     "default_path": "index.html"
   },
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "service-worker.js",
+    "type": "module"
   },
   "action": {
     "default_icon": "assets/placeholder.png",
-    "default_title": "Open side panel"
+    "default_title": "Open Marginalia"
   }
 }

@@ -1,6 +1,14 @@
 /// <reference types="chrome"/>
 
 import type { TabChangeMessage } from './types';
+import { initializeSync } from './sidebarLogic';
+
+// Initialize Firebase auth on extension load (non-blocking)
+initializeSync().then(() => {
+  console.log('Firebase sync initialized');
+}).catch((error) => {
+  console.error('Failed to initialize Firebase sync:', error);
+});
 
 // Open side panel when extension icon is clicked
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
