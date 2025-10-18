@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2 } from 'lucide-react';
 import type { UrlContext, NoteScope, Note } from './types';
-import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes } from './sidebarLogic';
+import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
 
 interface TabConfig {
   label: string;
@@ -70,6 +70,33 @@ export default function App() {
     loadAllNotes();
   }, [context]);
 
+  // Subscribe to Firebase real-time updates for all scopes
+  useEffect(() => {
+    if (!context) return;
+
+    const syncService = getSyncService();
+    if (!syncService) return;
+
+    const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
+    const unsubscribers: (() => void)[] = [];
+
+    // Subscribe to each scope
+    allScopes.forEach(scope => {
+      const unsubscribe = syncService.subscribeToScope(scope, context, (updatedNotes) => {
+        setNotes(prev => ({
+          ...prev,
+          [scope]: updatedNotes
+        }));
+      });
+      unsubscribers.push(unsubscribe);
+    });
+
+    // Cleanup all subscriptions when context changes or component unmounts
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [context]);
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -128,7 +155,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     
     // Clear input and reset textarea height
@@ -151,7 +178,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     setOpenMenuId(null);
   };
@@ -178,7 +205,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     
     setEditingId(null);
@@ -287,24 +314,24 @@ export default function App() {
                   className="p-3 sm:p-4 flex items-start gap-3 group bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-shadow relative rounded-md my-1"
                 >
                   {editingId === note.id ? (
-                    <div className="flex-1 flex gap-2">
+                    <div className="flex-1 flex flex-col gap-2">
                       <textarea
                         ref={editTextareaRef}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        className="flex-1 px-2 py-1 border border-indigo-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
-                        autoFocus
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+                        rows={1}
                       />
-                      <div className="flex flex-col gap-1">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleSaveEdit(note.id)}
-                          className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                          className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
                         >
                           Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="px-2 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                          className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
                         >
                           Cancel
                         </button>
@@ -313,12 +340,14 @@ export default function App() {
                   ) : (
                     <>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 break-words">{note.text}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                          {note.text}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-2">
                           {new Date(note.updatedAt).toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex-shrink-0 relative">
+                      <div className="relative flex-shrink-0">
                         <button
                           onClick={(e) => toggleMenu(e, note.id)}
                           className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -326,7 +355,7 @@ export default function App() {
                           <MoreVertical size={16} />
                         </button>
                         {openMenuId === note.id && (
-                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]">
+                          <div className="absolute right-0 top-6 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]">
                             <button
                               onClick={() => handleStartEdit(note)}
                               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
