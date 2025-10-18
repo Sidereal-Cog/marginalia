@@ -2,7 +2,6 @@
  * Central type definitions for Marginalia
  */
 
-
 /**
  * URL context structure parsed from browser tabs
  */
@@ -34,7 +33,8 @@ export interface TabChangeMessage {
 export interface Note {
   id: string;
   text: string;
-  timestamp: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /**
@@ -44,7 +44,6 @@ export interface TabConfig {
   label: string;
   scope: NoteScope;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  context: string;
 }
 
 /**

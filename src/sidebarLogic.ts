@@ -1,8 +1,6 @@
 /// <reference types="chrome"/>
 
-// Utility functions for Chrome API integration in your React app
-
-import type { UrlContext, NoteScope, TabChangeMessage } from './types';
+import type { UrlContext, NoteScope, TabChangeMessage, Note } from './types';
 
 /**
  * Parse URL into scope contexts
@@ -48,12 +46,10 @@ export async function getCurrentTabContext(): Promise<UrlContext | null> {
 /**
  * Listen for tab changes and call callback with new context
  */
-export function onTabContextChange(callback: (context: UrlContext) => void): () => void {
+export function onTabContextChange(callback: (context: UrlContext | null) => void): () => void {
   const updateContext = async () => {
     const context = await getCurrentTabContext();
-    if (context) {
-      callback(context);
-    }
+    callback(context);
   };
 
   // Listen for background messages about tab changes
@@ -92,7 +88,7 @@ export function getStorageKey(scope: NoteScope, context: UrlContext): string {
 /**
  * Save notes for a specific scope
  */
-export async function saveNotes(scope: NoteScope, context: UrlContext, notes: string[]): Promise<void> {
+export async function saveNotes(scope: NoteScope, context: UrlContext, notes: Note[]): Promise<void> {
   const key = getStorageKey(scope, context);
   await chrome.storage.local.set({ [key]: notes });
 }
@@ -100,32 +96,8 @@ export async function saveNotes(scope: NoteScope, context: UrlContext, notes: st
 /**
  * Load notes for a specific scope
  */
-export async function loadNotes(scope: NoteScope, context: UrlContext): Promise<string[]> {
+export async function loadNotes(scope: NoteScope, context: UrlContext): Promise<Note[]> {
   const key = getStorageKey(scope, context);
   const result = await chrome.storage.local.get(key);
   return result[key] || [];
 }
-
-/**
- * Example React hook usage:
- * 
- * import { useState, useEffect } from 'react';
- * import { getCurrentTabContext, onTabContextChange } from './sidebarLogic';
- * import type { UrlContext } from './types';
- * 
- * function useBrowserContext() {
- *   const [context, setContext] = useState<UrlContext | null>(null);
- * 
- *   useEffect(() => {
- *     // Get initial context
- *     getCurrentTabContext().then(setContext);
- *     
- *     // Listen for changes
- *     const cleanup = onTabContextChange((newContext) => setContext(newContext));
- *     
- *     return cleanup;
- *   }, []);
- * 
- *   return context;
- * }
- */
