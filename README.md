@@ -16,6 +16,8 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 
 **Smart Context Detection** - Automatically detects URL changes and shows relevant notes as you browse.
 
+**Options Page** - Access extension information and usage guide via right-click → Options.
+
 ## Tech Stack
 
 - **React 19** - UI framework
@@ -53,12 +55,16 @@ npm install
    - Enable Firestore Database and Anonymous Authentication
    - Add your Firebase config to `src/firebaseConfig.ts`
 
-4. Build the extension:
+4. Add extension icons:
+   - Place icon files (16x16, 32x32, 48x48, 128x128 PNG) in `public/assets/`
+   - Update `public/manifest.json` with icon paths
+
+5. Build the extension:
 ```bash
 npm run build
 ```
 
-5. Load the extension in Chrome:
+6. Load the extension in Chrome:
    - Open Chrome and go to `chrome://extensions/`
    - Enable "Developer mode" (top right)
    - Click "Load unpacked"
@@ -89,6 +95,7 @@ npm run test:ui           # Interactive test UI
 marginalia/
 ├── src/
 │   ├── App.tsx              # Main React component with tabbed interface
+│   ├── options.tsx          # Options page component
 │   ├── background.ts        # Service worker for tab change detection
 │   ├── sidebarLogic.ts      # Chrome API utilities
 │   ├── firebaseConfig.ts    # Firebase initialization
@@ -102,8 +109,10 @@ marginalia/
 │   ├── unit/               # Unit tests
 │   └── components/         # Component tests
 ├── public/
-│   └── manifest.json        # Chrome extension manifest
+│   ├── manifest.json        # Chrome extension manifest
+│   └── assets/              # Icon files
 ├── index.html               # Side panel HTML
+├── options.html             # Options page HTML
 ├── vitest.config.ts         # Vitest configuration
 └── vite.config.ts           # Vite build configuration
 ```
@@ -116,6 +125,21 @@ marginalia/
 4. Add notes using the input field - they're automatically saved and synced
 5. Notes sync in real-time across all your devices
 6. Works offline with automatic sync when reconnected
+7. Right-click the extension icon → Options to view usage guide
+
+## Icon Requirements
+
+Extension requires the following icon sizes in PNG format:
+- **16x16** - Toolbar display (most critical for visibility)
+- **32x32** - Toolbar at 2x DPI
+- **48x48** - Extension management page
+- **128x128** - Chrome Web Store and installation
+
+**Design Tips:**
+- Use bold lines and high contrast for visibility at 16x16
+- Design must work on both light and dark browser themes
+- Chrome doesn't support theme-aware icons
+- Test 16x16 icon at actual size before finalizing
 
 ## Testing
 

@@ -21,7 +21,19 @@
     "type": "module"
   },
   "action": {
-    "default_icon": "assets/placeholder.png",
-    "default_title": "Open Marginalia"
+    "default_title": "Open Marginalia",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "32": "assets/icon32.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "assets/icon16.png",
+    "19": "assets/icon19.png",
+    "32": "assets/icon32.png",
+    "38": "assets/icon38.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
   }
 }
