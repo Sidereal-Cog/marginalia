@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut } from 'lucide-react';
 import type { UrlContext, NoteScope, Note } from './types';
 import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
+import { onAuthChange, signOut } from './authService';
 
 interface TabConfig {
   label: string;
@@ -10,6 +11,12 @@ interface TabConfig {
 }
 
 export default function App() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // App state
   const [tabValue, setTabValue] = useState<number>(0);
   const [newNote, setNewNote] = useState<string>('');
   const [context, setContext] = useState<UrlContext | null>(null);
@@ -37,20 +44,59 @@ export default function App() {
     ? allTabs.filter(tab => tab.scope !== 'subdomain')
     : allTabs;
 
+  // Listen to auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthChange((user) => {
+      setIsAuthenticated(!!user);
+      setUserEmail(user?.email || null);
+      setIsAuthLoading(false);
+      
+      // Load notes when authenticated
+      if (user) {
+        loadAllScopes();
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Load initial context and set up listener
   useEffect(() => {
+    if (!isAuthenticated) return;
+    
     getCurrentTabContext().then(setContext);
     
     const cleanup = onTabContextChange(setContext);
     
     return cleanup;
-  }, []);
+  }, [isAuthenticated]);
+
+  // Helper function to load all scopes
+  const loadAllScopes = async () => {
+    const ctx = await getCurrentTabContext();
+    if (!ctx) return;
+    
+    setContext(ctx);
+    
+    const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
+    const loadedNotes: Record<NoteScope, Note[]> = {
+      browser: [],
+      domain: [],
+      subdomain: [],
+      page: []
+    };
+
+    for (const scope of allScopes) {
+      loadedNotes[scope] = await loadNotes(scope, ctx);
+    }
+
+    setNotes(loadedNotes);
+  };
 
   // Load notes when context changes
   useEffect(() => {
-    if (!context) return;
+    if (!context || !isAuthenticated) return;
 
-    // Load notes for all scopes to populate badges
     const loadAllNotes = async () => {
       const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
       const loadedNotes: Record<NoteScope, Note[]> = {
@@ -68,11 +114,11 @@ export default function App() {
     };
 
     loadAllNotes();
-  }, [context]);
+  }, [context, isAuthenticated]);
 
   // Subscribe to Firebase real-time updates for all scopes
   useEffect(() => {
-    if (!context) return;
+    if (!context || !isAuthenticated) return;
 
     const syncService = getSyncService();
     if (!syncService) return;
@@ -95,7 +141,7 @@ export default function App() {
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [context]);
+  }, [context, isAuthenticated]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -229,11 +275,98 @@ export default function App() {
     setOpenMenuId(openMenuId === noteId ? null : noteId);
   };
 
+  const handleSignOut = async () => {
+    if (!confirm('Are you sure you want to sign out? You\'ll need to use the magic link again to sign back in.')) {
+      return;
+    }
+    
+    try {
+      await signOut();
+      // Clear local state
+      setNotes({
+        browser: [],
+        domain: [],
+        subdomain: [],
+        page: []
+      });
+      setTabValue(0);
+      setContext(null);
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  };
+
+  // Show loading while checking auth
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show auth screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              Marginalia
+            </h1>
+            <p className="text-gray-600">
+              Context-aware notes for the web
+            </p>
+          </div>
+
+          <div className="mb-6">
+            <svg className="w-16 h-16 mx-auto text-indigo-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <p className="text-gray-700 font-medium mb-2">
+              Please sign in to continue
+            </p>
+            <p className="text-sm text-gray-500">
+              Your notes will sync across all your devices
+            </p>
+          </div>
+
+          <button
+            onClick={() => chrome.runtime.openOptionsPage()}
+            className="w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+          >
+            Open Sign In Page
+          </button>
+
+          <p className="mt-4 text-xs text-gray-500">
+            New user? You can create an account on the sign in page
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
-        <h1 className="text-xl font-semibold">Marginalia</h1>
-        <p className="text-xs text-indigo-100 mt-1">Scribbles in the sidebar</p>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-semibold">Marginalia</h1>
+          <div className="flex items-center gap-2">
+            {userEmail && (
+              <span className="text-xs text-indigo-100 truncate max-w-[150px]" title={userEmail}>
+                {userEmail}
+              </span>
+            )}
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 hover:bg-white/20 rounded transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
       </div>
       
       <div className="flex bg-white border-b border-gray-200 flex-shrink-0">

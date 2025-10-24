@@ -2,12 +2,20 @@
 
 import type { TabChangeMessage } from './types';
 import { initializeSync } from './sidebarLogic';
+import { onAuthChange } from './authService';
 
-// Initialize Firebase auth on extension load (non-blocking)
-initializeSync().then(() => {
-  console.log('Firebase sync initialized');
-}).catch((error) => {
-  console.error('Failed to initialize Firebase sync:', error);
+// Initialize Firebase sync when user is authenticated
+onAuthChange((user) => {
+  if (user) {
+    console.log('User authenticated:', user.uid);
+    initializeSync().then(() => {
+      console.log('Firebase sync initialized');
+    }).catch((error) => {
+      console.error('Failed to initialize Firebase sync:', error);
+    });
+  } else {
+    console.log('User signed out');
+  }
 });
 
 // Open side panel when extension icon is clicked
@@ -30,7 +38,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo: chrome.tabs.TabActiveInfo
     type: 'TAB_CHANGED',
     tabId: activeInfo.tabId
   };
-  chrome.runtime.sendMessage(message);
+  
+  // Silently ignore if sidebar isn't open
+  try {
+    await chrome.runtime.sendMessage(message);
+  } catch (error) {
+    // Expected when sidebar isn't open - ignore
+  }
 });
 
 // Listen for tab updates (URL changes, page loads)
@@ -46,7 +60,13 @@ chrome.tabs.onUpdated.addListener((
       tabId: tabId,
       url: tab.url
     };
-    chrome.runtime.sendMessage(message);
+    
+    // Silently ignore if sidebar isn't open
+    try {
+      chrome.runtime.sendMessage(message);
+    } catch (error) {
+      // Expected when sidebar isn't open - ignore
+    }
   }
 });
 

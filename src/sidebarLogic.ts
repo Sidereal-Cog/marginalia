@@ -2,7 +2,7 @@
 
 import type { UrlContext, NoteScope, TabChangeMessage, Note } from './types';
 import { FirebaseSync } from './firebaseSync';
-import { ensureAuth } from './authService';
+import { getCurrentUserId } from './authService';
 
 let syncService: FirebaseSync | null = null;
 
@@ -10,7 +10,13 @@ let syncService: FirebaseSync | null = null;
  * Initialize Firebase sync service
  */
 export const initializeSync = async (): Promise<void> => {
-  const userId = await ensureAuth();
+  const userId = getCurrentUserId();
+  
+  if (!userId) {
+    console.log('No authenticated user, sync not initialized');
+    return;
+  }
+  
   syncService = new FirebaseSync(userId);
   
   // Check if we need to migrate local notes
@@ -120,11 +126,13 @@ export async function saveNotes(scope: NoteScope, context: UrlContext, notes: No
     await initializeSync();
   }
   
-  // Save to Firebase
-  try {
-    await syncService!.saveNotes(scope, context, notes);
-  } catch (error) {
-    console.error('Failed to sync to Firebase:', error);
+  // Save to Firebase if sync is available
+  if (syncService) {
+    try {
+      await syncService.saveNotes(scope, context, notes);
+    } catch (error) {
+      console.error('Failed to sync to Firebase:', error);
+    }
   }
   
   // Always save to local storage as backup
@@ -140,21 +148,23 @@ export async function loadNotes(scope: NoteScope, context: UrlContext): Promise<
     await initializeSync();
   }
   
-  try {
-    // Try to load from Firebase first
-    const notes = await syncService!.loadNotes(scope, context);
-    
-    // Update local cache
-    const key = getStorageKey(scope, context);
-    await chrome.storage.local.set({ [key]: notes });
-    
-    return notes;
-  } catch (error) {
-    console.error('Failed to load from Firebase, using local cache:', error);
-    
-    // Fall back to local storage
-    const key = getStorageKey(scope, context);
-    const result = await chrome.storage.local.get(key);
-    return result[key] || [];
+  // If sync is available, try Firebase first
+  if (syncService) {
+    try {
+      const notes = await syncService.loadNotes(scope, context);
+      
+      // Update local cache
+      const key = getStorageKey(scope, context);
+      await chrome.storage.local.set({ [key]: notes });
+      
+      return notes;
+    } catch (error) {
+      console.error('Failed to load from Firebase, using local cache:', error);
+    }
   }
+  
+  // Fall back to local storage
+  const key = getStorageKey(scope, context);
+  const result = await chrome.storage.local.get(key);
+  return result[key] || [];
 }
