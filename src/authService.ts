@@ -3,25 +3,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
   onAuthStateChanged, 
   User,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-
-// Get the extension's URL for magic link redirect
-// Use chrome.runtime.getURL which works in both UI and service worker contexts
-const getExtensionUrl = (): string => {
-  return chrome.runtime.getURL('index.html');
-};
-
-const actionCodeSettings = {
-  // URL you want to redirect back to after email link is clicked
-  url: getExtensionUrl(),
-  handleCodeInApp: true,
-};
 
 // Email/Password Authentication
 
@@ -55,48 +40,6 @@ export const resetPassword = async (email: string): Promise<void> => {
     console.error('Password reset failed:', error);
     throw error;
   }
-};
-
-// Magic Link Authentication (kept for compatibility)
-
-// Send magic link to email
-export const sendMagicLink = async (email: string): Promise<void> => {
-  try {
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    // Save email locally so we can complete sign-in after redirect
-    window.localStorage.setItem('emailForSignIn', email);
-  } catch (error) {
-    console.error('Failed to send magic link:', error);
-    throw error;
-  }
-};
-
-// Complete sign-in after user clicks magic link
-export const completeMagicLinkSignIn = async (emailLink: string): Promise<string> => {
-  try {
-    // Get email from storage
-    let email = window.localStorage.getItem('emailForSignIn');
-    
-    // If email not in storage, we need to ask user for it
-    if (!email) {
-      throw new Error('Email not found. Please enter your email again.');
-    }
-
-    const result = await signInWithEmailLink(auth, email, emailLink);
-    
-    // Clear email from storage
-    window.localStorage.removeItem('emailForSignIn');
-    
-    return result.user.uid;
-  } catch (error) {
-    console.error('Failed to complete sign-in:', error);
-    throw error;
-  }
-};
-
-// Check if current URL is a sign-in link
-export const isSignInLink = (url: string): boolean => {
-  return isSignInWithEmailLink(auth, url);
 };
 
 // Common Authentication Functions
@@ -155,13 +98,9 @@ export const getAuthErrorMessage = (error: any): string => {
       return 'Too many failed attempts. Please try again later.';
     case 'auth/network-request-failed':
       return 'Network error. Please check your connection.';
-    case 'auth/invalid-action-code':
-      return 'This link has expired or is invalid. Please request a new one.';
-    case 'auth/expired-action-code':
-      return 'This link has expired. Please request a new one.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     default:
       return error?.message || 'An error occurred. Please try again.';
   }
-}
+};

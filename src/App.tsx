@@ -50,73 +50,60 @@ export default function App() {
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
       setIsAuthLoading(false);
-      
-      // Load notes when authenticated
-      if (user) {
-        loadAllScopes();
-      }
     });
 
     return unsubscribe;
   }, []);
 
-  // Load initial context and set up listener
+  // Update context when tab changes
   useEffect(() => {
-    if (!isAuthenticated) return;
-    
-    getCurrentTabContext().then(setContext);
-    
-    const cleanup = onTabContextChange(setContext);
-    
-    return cleanup;
-  }, [isAuthenticated]);
-
-  // Helper function to load all scopes
-  const loadAllScopes = async () => {
-    const ctx = await getCurrentTabContext();
-    if (!ctx) return;
-    
-    setContext(ctx);
-    
-    const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
-    const loadedNotes: Record<NoteScope, Note[]> = {
-      browser: [],
-      domain: [],
-      subdomain: [],
-      page: []
+    const updateContext = async () => {
+      const newContext = await getCurrentTabContext();
+      setContext(newContext);
     };
 
-    for (const scope of allScopes) {
-      loadedNotes[scope] = await loadNotes(scope, ctx);
-    }
+    updateContext();
+    const unregister = onTabContextChange(updateContext);
+    return unregister;
+  }, []);
 
-    setNotes(loadedNotes);
-  };
-
-  // Load notes when context changes
+  // Load notes when context or tab changes
   useEffect(() => {
-    if (!context || !isAuthenticated) return;
+    const loadScopeNotes = async () => {
+      if (!context || !isAuthenticated) return;
+      
+      const currentScope = tabs[tabValue].scope;
+      const loadedNotes = await loadNotes(currentScope, context);
+      
+      setNotes(prev => ({
+        ...prev,
+        [currentScope]: loadedNotes
+      }));
+    };
 
-    const loadAllNotes = async () => {
+    loadScopeNotes();
+  }, [context, tabValue, isAuthenticated]);
+
+  // Load badge counts for all scopes when context changes
+  useEffect(() => {
+    const loadAllScopeCounts = async () => {
+      if (!context || !isAuthenticated) return;
+
       const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
-      const loadedNotes: Record<NoteScope, Note[]> = {
-        browser: [],
-        domain: [],
-        subdomain: [],
-        page: []
-      };
+      const allNotes: Record<NoteScope, Note[]> = { browser: [], domain: [], subdomain: [], page: [] };
 
       for (const scope of allScopes) {
-        loadedNotes[scope] = await loadNotes(scope, context);
+        const scopeNotes = await loadNotes(scope, context);
+        allNotes[scope] = scopeNotes;
       }
 
-      setNotes(loadedNotes);
+      setNotes(allNotes);
     };
 
-    loadAllNotes();
+    loadAllScopeCounts();
   }, [context, isAuthenticated]);
 
-  // Subscribe to Firebase real-time updates for all scopes
+  // Subscribe to real-time updates from Firebase
   useEffect(() => {
     if (!context || !isAuthenticated) return;
 
@@ -276,70 +263,35 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
-    if (!confirm('Are you sure you want to sign out? You\'ll need to use the magic link again to sign back in.')) {
+    if (!confirm('Are you sure you want to sign out? You\'ll need to sign in again.')) {
       return;
     }
     
     try {
       await signOut();
-      // Clear local state
-      setNotes({
-        browser: [],
-        domain: [],
-        subdomain: [],
-        page: []
-      });
-      setTabValue(0);
-      setContext(null);
     } catch (error) {
       console.error('Sign out failed:', error);
     }
   };
 
-  // Show loading while checking auth
+  // Loading state
   if (isAuthLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
   }
 
-  // Show auth screen if not authenticated
+  // Unauthenticated state
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Marginalia
-            </h1>
-            <p className="text-gray-600">
-              Context-aware notes for the web
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <svg className="w-16 h-16 mx-auto text-indigo-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <p className="text-gray-700 font-medium mb-2">
-              Please sign in to continue
-            </p>
-            <p className="text-sm text-gray-500">
-              Your notes will sync across all your devices
-            </p>
-          </div>
-
-          <button
-            onClick={() => chrome.runtime.openOptionsPage()}
-            className="w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-          >
-            Open Sign In Page
-          </button>
-
-          <p className="mt-4 text-xs text-gray-500">
-            New user? You can create an account on the sign in page
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50 p-8">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome to Marginalia</h2>
+          <p className="text-sm text-gray-600">
+            Please complete authentication to use this extension.
+            You can create an account on the sign in page
           </p>
         </div>
       </div>
@@ -347,13 +299,17 @@ export default function App() {
   }
 
   return (
-    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
+    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50" data-testid="app-container">
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-semibold">Marginalia</h1>
           <div className="flex items-center gap-2">
             {userEmail && (
-              <span className="text-xs text-indigo-100 truncate max-w-[150px]" title={userEmail}>
+              <span 
+                className="text-xs text-indigo-100 truncate max-w-[150px]" 
+                title={userEmail}
+                data-testid="user-email"
+              >
                 {userEmail}
               </span>
             )}
@@ -361,6 +317,8 @@ export default function App() {
               onClick={handleSignOut}
               className="p-1.5 hover:bg-white/20 rounded transition-colors"
               title="Sign out"
+              aria-label="Sign out"
+              data-testid="signout-button"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -369,7 +327,7 @@ export default function App() {
         <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
       </div>
       
-      <div className="flex bg-white border-b border-gray-200 flex-shrink-0">
+      <div className="flex bg-white border-b border-gray-200 flex-shrink-0" role="tablist">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const noteCount = notes[tab.scope]?.length || 0;
@@ -377,6 +335,10 @@ export default function App() {
             <button
               key={idx}
               onClick={() => setTabValue(idx)}
+              role="tab"
+              aria-selected={tabValue === idx}
+              aria-label={`${tab.label} tab`}
+              data-testid={`tab-${tab.scope}`}
               className={`flex-1 py-3 px-1 sm:px-2 text-xs sm:text-sm font-medium transition-colors flex flex-col items-center gap-1 relative ${
                 tabValue === idx
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
@@ -386,7 +348,11 @@ export default function App() {
               <div className="relative">
                 <Icon size={18} />
                 {noteCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  <span 
+                    className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                    aria-label={`${noteCount} notes`}
+                    data-testid={`badge-${tab.scope}`}
+                  >
                     {noteCount}
                   </span>
                 )}
@@ -398,11 +364,15 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-auto p-3 sm:p-4">
-        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4" data-testid="add-note-container">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500 mb-1">Scope:</p>
-              <p className="text-sm font-medium text-gray-700 truncate" title={getScopeValue()}>
+              <p 
+                className="text-sm font-medium text-gray-700 truncate" 
+                title={getScopeValue()}
+                data-testid="current-scope"
+              >
                 {getScopeValue()}
               </p>
             </div>
@@ -414,6 +384,8 @@ export default function App() {
               onChange={(e) => setNewNote(e.target.value)}
               onKeyDown={handleKeyPress}
               rows={1}
+              aria-label="New note input"
+              data-testid="new-note-input"
               className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
               style={{
                 minHeight: '38px',
@@ -427,6 +399,8 @@ export default function App() {
             />
             <button 
               onClick={handleAddNote}
+              aria-label="Add note"
+              data-testid="add-note-button"
               className="flex-shrink-0 p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-start"
             >
               <Plus size={20} />
@@ -434,9 +408,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm" data-testid="notes-list">
           {getCurrentNotes().length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm">
+            <div className="p-8 text-center text-gray-400 text-sm" data-testid="empty-state">
               No notes yet. Add one above!
             </div>
           ) : (
@@ -445,25 +419,32 @@ export default function App() {
                 <li 
                   key={note.id} 
                   className="p-3 sm:p-4 flex items-start gap-3 group bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-shadow relative rounded-md my-1"
+                  data-testid={`note-${note.id}`}
                 >
                   {editingId === note.id ? (
-                    <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex-1 flex flex-col gap-2" data-testid="edit-mode">
                       <textarea
                         ref={editTextareaRef}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
+                        aria-label="Edit note"
+                        data-testid="edit-note-input"
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
                         rows={1}
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleSaveEdit(note.id)}
+                          aria-label="Save edit"
+                          data-testid="save-edit-button"
                           className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
                         >
                           Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
+                          aria-label="Cancel edit"
+                          data-testid="cancel-edit-button"
                           className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
                         >
                           Cancel
@@ -473,24 +454,38 @@ export default function App() {
                   ) : (
                     <>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                        <p 
+                          className="text-sm text-gray-800 whitespace-pre-wrap break-words"
+                          data-testid="note-text"
+                        >
                           {note.text}
                         </p>
-                        <p className="text-xs text-gray-400 mt-2">
+                        <p 
+                          className="text-xs text-gray-400 mt-2"
+                          data-testid="note-timestamp"
+                        >
                           {new Date(note.updatedAt).toLocaleString()}
                         </p>
                       </div>
                       <div className="relative flex-shrink-0">
                         <button
                           onClick={(e) => toggleMenu(e, note.id)}
+                          aria-label="Note options"
+                          aria-expanded={openMenuId === note.id}
+                          data-testid="note-menu-button"
                           className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <MoreVertical size={16} />
                         </button>
                         {openMenuId === note.id && (
-                          <div className="absolute right-0 top-6 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]">
+                          <div 
+                            className="absolute right-0 top-6 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]"
+                            data-testid="note-menu"
+                          >
                             <button
                               onClick={() => handleStartEdit(note)}
+                              aria-label="Edit note"
+                              data-testid="edit-note-button"
                               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Edit2 size={14} />
@@ -498,6 +493,8 @@ export default function App() {
                             </button>
                             <button
                               onClick={() => handleDeleteNote(note.id)}
+                              aria-label="Delete note"
+                              data-testid="delete-note-button"
                               className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                             >
                               <Trash2 size={14} />
