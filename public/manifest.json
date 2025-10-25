@@ -1,6 +1,6 @@
 {
   "name": "Marginalia",
-  "description": "Context-aware notes for the web",
+  "description": "Scribbles in the sidebar",
   "version": "1.0",
   "manifest_version": 3,
   "permissions": [

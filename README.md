@@ -25,7 +25,7 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 - **Tailwind CSS** - Styling
 - **Vite** - Build tool
 - **Lucide React** - Icons
-- **Firebase** - Cloud sync and authentication
+- **Firebase** - Cloud sync and email/password authentication
 - **Chrome Extension Manifest V3** - Side panel API
 - **Vitest** - Testing framework
 
@@ -52,7 +52,7 @@ npm install
 
 3. Set up Firebase:
    - Create a Firebase project at console.firebase.google.com
-   - Enable Firestore Database and Anonymous Authentication
+   - Enable Firestore Database and Email/Password Authentication
    - Add your Firebase config to `src/firebaseConfig.ts`
 
 4. Add extension icons:
@@ -99,7 +99,7 @@ marginalia/
 │   ├── background.ts        # Service worker for tab change detection
 │   ├── sidebarLogic.ts      # Chrome API utilities
 │   ├── firebaseConfig.ts    # Firebase initialization
-│   ├── authService.ts       # Anonymous authentication
+│   ├── authService.ts       # Email/password authentication
 │   ├── firebaseSync.ts      # Firestore sync operations
 │   ├── types.ts             # TypeScript type definitions
 │   ├── main.tsx             # React entry point
@@ -119,13 +119,14 @@ marginalia/
 
 ## How It Works
 
-1. Click the extension icon to open the side panel
-2. The panel shows your current browsing context (domain, subdomain, path)
-3. Switch between tabs to view notes at different scope levels
-4. Add notes using the input field - they're automatically saved and synced
-5. Notes sync in real-time across all your devices
-6. Works offline with automatic sync when reconnected
-7. Right-click the extension icon → Options to view usage guide
+1. Open the extension options page to create an account or sign in
+2. Click the extension icon to open the side panel
+3. The panel shows your current browsing context (domain, subdomain, path)
+4. Switch between tabs to view notes at different scope levels
+5. Add notes using the input field - they're automatically saved and synced
+6. Notes sync in real-time across all your devices
+7. Works offline with automatic sync when reconnected
+8. Right-click the extension icon → Options to manage your account
 
 ## Icon Requirements
 
@@ -165,7 +166,7 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 1. Create Firebase project at console.firebase.google.com
 2. Enable Firestore Database (start in test mode)
-3. Enable Anonymous Authentication
+3. Enable Email/Password Authentication in Authentication > Sign-in method
 4. Add security rules:
 ```
 rules_version = '2';
