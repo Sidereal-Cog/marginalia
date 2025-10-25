@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut } from 'lucide-react';
 import type { UrlContext, NoteScope, Note } from './types';
-import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes } from './sidebarLogic';
+import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
+import { onAuthChange, signOut } from './authService';
 
 interface TabConfig {
   label: string;
@@ -10,6 +11,12 @@ interface TabConfig {
 }
 
 export default function App() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // App state
   const [tabValue, setTabValue] = useState<number>(0);
   const [newNote, setNewNote] = useState<string>('');
   const [context, setContext] = useState<UrlContext | null>(null);
@@ -37,38 +44,91 @@ export default function App() {
     ? allTabs.filter(tab => tab.scope !== 'subdomain')
     : allTabs;
 
-  // Load initial context and set up listener
+  // Listen to auth state changes
   useEffect(() => {
-    getCurrentTabContext().then(setContext);
-    
-    const cleanup = onTabContextChange(setContext);
-    
-    return cleanup;
+    const unsubscribe = onAuthChange((user) => {
+      setIsAuthenticated(!!user);
+      setUserEmail(user?.email || null);
+      setIsAuthLoading(false);
+    });
+
+    return unsubscribe;
   }, []);
 
-  // Load notes when context changes
+  // Update context when tab changes
   useEffect(() => {
-    if (!context) return;
-
-    // Load notes for all scopes to populate badges
-    const loadAllNotes = async () => {
-      const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
-      const loadedNotes: Record<NoteScope, Note[]> = {
-        browser: [],
-        domain: [],
-        subdomain: [],
-        page: []
-      };
-
-      for (const scope of allScopes) {
-        loadedNotes[scope] = await loadNotes(scope, context);
-      }
-
-      setNotes(loadedNotes);
+    const updateContext = async () => {
+      const newContext = await getCurrentTabContext();
+      setContext(newContext);
     };
 
-    loadAllNotes();
-  }, [context]);
+    updateContext();
+    const unregister = onTabContextChange(updateContext);
+    return unregister;
+  }, []);
+
+  // Load notes when context or tab changes
+  useEffect(() => {
+    const loadScopeNotes = async () => {
+      if (!context || !isAuthenticated) return;
+      
+      const currentScope = tabs[tabValue].scope;
+      const loadedNotes = await loadNotes(currentScope, context);
+      
+      setNotes(prev => ({
+        ...prev,
+        [currentScope]: loadedNotes
+      }));
+    };
+
+    loadScopeNotes();
+  }, [context, tabValue, isAuthenticated]);
+
+  // Load badge counts for all scopes when context changes
+  useEffect(() => {
+    const loadAllScopeCounts = async () => {
+      if (!context || !isAuthenticated) return;
+
+      const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
+      const allNotes: Record<NoteScope, Note[]> = { browser: [], domain: [], subdomain: [], page: [] };
+
+      for (const scope of allScopes) {
+        const scopeNotes = await loadNotes(scope, context);
+        allNotes[scope] = scopeNotes;
+      }
+
+      setNotes(allNotes);
+    };
+
+    loadAllScopeCounts();
+  }, [context, isAuthenticated]);
+
+  // Subscribe to real-time updates from Firebase
+  useEffect(() => {
+    if (!context || !isAuthenticated) return;
+
+    const syncService = getSyncService();
+    if (!syncService) return;
+
+    const allScopes: NoteScope[] = ['page', 'subdomain', 'domain', 'browser'];
+    const unsubscribers: (() => void)[] = [];
+
+    // Subscribe to each scope
+    allScopes.forEach(scope => {
+      const unsubscribe = syncService.subscribeToScope(scope, context, (updatedNotes) => {
+        setNotes(prev => ({
+          ...prev,
+          [scope]: updatedNotes
+        }));
+      });
+      unsubscribers.push(unsubscribe);
+    });
+
+    // Cleanup all subscriptions when context changes or component unmounts
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [context, isAuthenticated]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -128,7 +188,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     
     // Clear input and reset textarea height
@@ -151,7 +211,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     setOpenMenuId(null);
   };
@@ -178,7 +238,7 @@ export default function App() {
       [currentScope]: updatedNotes
     }));
 
-    // Save to Chrome storage
+    // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
     
     setEditingId(null);
@@ -202,14 +262,72 @@ export default function App() {
     setOpenMenuId(openMenuId === noteId ? null : noteId);
   };
 
+  const handleSignOut = async () => {
+    if (!confirm('Are you sure you want to sign out? You\'ll need to sign in again.')) {
+      return;
+    }
+    
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  };
+
+  // Loading state
+  if (isAuthLoading) {
+    return (
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  // Unauthenticated state
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50 p-8">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome to Marginalia</h2>
+          <p className="text-sm text-gray-600">
+            Please complete authentication to use this extension.
+            You can create an account on the sign in page
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
+    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50" data-testid="app-container">
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
-        <h1 className="text-xl font-semibold">Marginalia</h1>
-        <p className="text-xs text-indigo-100 mt-1">Scribbles in the sidebar</p>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-semibold">Marginalia</h1>
+          <div className="flex items-center gap-2">
+            {userEmail && (
+              <span 
+                className="text-xs text-indigo-100 truncate max-w-[150px]" 
+                title={userEmail}
+                data-testid="user-email"
+              >
+                {userEmail}
+              </span>
+            )}
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 hover:bg-white/20 rounded transition-colors"
+              title="Sign out"
+              aria-label="Sign out"
+              data-testid="signout-button"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
       </div>
       
-      <div className="flex bg-white border-b border-gray-200 flex-shrink-0">
+      <div className="flex bg-white border-b border-gray-200 flex-shrink-0" role="tablist">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const noteCount = notes[tab.scope]?.length || 0;
@@ -217,6 +335,10 @@ export default function App() {
             <button
               key={idx}
               onClick={() => setTabValue(idx)}
+              role="tab"
+              aria-selected={tabValue === idx}
+              aria-label={`${tab.label} tab`}
+              data-testid={`tab-${tab.scope}`}
               className={`flex-1 py-3 px-1 sm:px-2 text-xs sm:text-sm font-medium transition-colors flex flex-col items-center gap-1 relative ${
                 tabValue === idx
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
@@ -226,7 +348,11 @@ export default function App() {
               <div className="relative">
                 <Icon size={18} />
                 {noteCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  <span 
+                    className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                    aria-label={`${noteCount} notes`}
+                    data-testid={`badge-${tab.scope}`}
+                  >
                     {noteCount}
                   </span>
                 )}
@@ -238,11 +364,15 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-auto p-3 sm:p-4">
-        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4" data-testid="add-note-container">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500 mb-1">Scope:</p>
-              <p className="text-sm font-medium text-gray-700 truncate" title={getScopeValue()}>
+              <p 
+                className="text-sm font-medium text-gray-700 truncate" 
+                title={getScopeValue()}
+                data-testid="current-scope"
+              >
                 {getScopeValue()}
               </p>
             </div>
@@ -254,6 +384,8 @@ export default function App() {
               onChange={(e) => setNewNote(e.target.value)}
               onKeyDown={handleKeyPress}
               rows={1}
+              aria-label="New note input"
+              data-testid="new-note-input"
               className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
               style={{
                 minHeight: '38px',
@@ -267,6 +399,8 @@ export default function App() {
             />
             <button 
               onClick={handleAddNote}
+              aria-label="Add note"
+              data-testid="add-note-button"
               className="flex-shrink-0 p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-start"
             >
               <Plus size={20} />
@@ -274,9 +408,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm" data-testid="notes-list">
           {getCurrentNotes().length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm">
+            <div className="p-8 text-center text-gray-400 text-sm" data-testid="empty-state">
               No notes yet. Add one above!
             </div>
           ) : (
@@ -285,26 +419,33 @@ export default function App() {
                 <li 
                   key={note.id} 
                   className="p-3 sm:p-4 flex items-start gap-3 group bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-shadow relative rounded-md my-1"
+                  data-testid={`note-${note.id}`}
                 >
                   {editingId === note.id ? (
-                    <div className="flex-1 flex gap-2">
+                    <div className="flex-1 flex flex-col gap-2" data-testid="edit-mode">
                       <textarea
                         ref={editTextareaRef}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        className="flex-1 px-2 py-1 border border-indigo-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
-                        autoFocus
+                        aria-label="Edit note"
+                        data-testid="edit-note-input"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+                        rows={1}
                       />
-                      <div className="flex flex-col gap-1">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleSaveEdit(note.id)}
-                          className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                          aria-label="Save edit"
+                          data-testid="save-edit-button"
+                          className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
                         >
                           Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="px-2 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                          aria-label="Cancel edit"
+                          data-testid="cancel-edit-button"
+                          className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
                         >
                           Cancel
                         </button>
@@ -313,22 +454,38 @@ export default function App() {
                   ) : (
                     <>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 break-words">{note.text}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p 
+                          className="text-sm text-gray-800 whitespace-pre-wrap break-words"
+                          data-testid="note-text"
+                        >
+                          {note.text}
+                        </p>
+                        <p 
+                          className="text-xs text-gray-400 mt-2"
+                          data-testid="note-timestamp"
+                        >
                           {new Date(note.updatedAt).toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex-shrink-0 relative">
+                      <div className="relative flex-shrink-0">
                         <button
                           onClick={(e) => toggleMenu(e, note.id)}
+                          aria-label="Note options"
+                          aria-expanded={openMenuId === note.id}
+                          data-testid="note-menu-button"
                           className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <MoreVertical size={16} />
                         </button>
                         {openMenuId === note.id && (
-                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]">
+                          <div 
+                            className="absolute right-0 top-6 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]"
+                            data-testid="note-menu"
+                          >
                             <button
                               onClick={() => handleStartEdit(note)}
+                              aria-label="Edit note"
+                              data-testid="edit-note-button"
                               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Edit2 size={14} />
@@ -336,6 +493,8 @@ export default function App() {
                             </button>
                             <button
                               onClick={() => handleDeleteNote(note.id)}
+                              aria-label="Delete note"
+                              data-testid="delete-note-button"
                               className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                             >
                               <Trash2 size={14} />

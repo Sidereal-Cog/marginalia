@@ -55,3 +55,13 @@ export interface ContextState {
   subdomain: string;
   path: string;
 }
+
+/**
+ * Authentication state
+ */
+export interface AuthState {
+  isAuthenticated: boolean;
+  userId: string | null;
+  email: string | null;
+  isLoading: boolean;
+}

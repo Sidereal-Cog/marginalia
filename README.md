@@ -1,6 +1,6 @@
 # Marginalia
 
-A Chrome extension for context-aware note-taking that organizes your notes by URL scope (browser-wide, domain, subdomain, or page-specific).
+A Chrome extension for context-aware note-taking that organizes your notes by URL scope (browser-wide, domain, subdomain, or page-specific) with Firebase sync across devices.
 
 ## Features
 
@@ -10,11 +10,13 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 - **Subdomain** - Notes for `app.example.com`
 - **Page** - Notes for specific URLs like `/dashboard`
 
+**Cross-Device Sync** - Firebase integration for real-time sync across all your devices with offline support.
+
 **Side Panel Interface** - Clean, always-accessible sidebar with tabbed navigation for different note scopes.
 
 **Smart Context Detection** - Automatically detects URL changes and shows relevant notes as you browse.
 
-**Persistent Storage** - All notes saved locally using Chrome's storage API.
+**Options Page** - Access extension information and usage guide via right-click → Options.
 
 ## Tech Stack
 
@@ -23,7 +25,9 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 - **Tailwind CSS** - Styling
 - **Vite** - Build tool
 - **Lucide React** - Icons
+- **Firebase** - Cloud sync and email/password authentication
 - **Chrome Extension Manifest V3** - Side panel API
+- **Vitest** - Testing framework
 
 ## Getting Started
 
@@ -31,6 +35,7 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 
 - Node.js (v18 or higher recommended)
 - Chrome or Brave browser
+- Firebase project (for sync features)
 
 ### Installation
 
@@ -45,12 +50,21 @@ cd marginalia
 npm install
 ```
 
-3. Build the extension:
+3. Set up Firebase:
+   - Create a Firebase project at console.firebase.google.com
+   - Enable Firestore Database and Email/Password Authentication
+   - Add your Firebase config to `src/firebaseConfig.ts`
+
+4. Add extension icons:
+   - Place icon files (16x16, 32x32, 48x48, 128x128 PNG) in `public/assets/`
+   - Update `public/manifest.json` with icon paths
+
+5. Build the extension:
 ```bash
 npm run build
 ```
 
-4. Load the extension in Chrome:
+6. Load the extension in Chrome:
    - Open Chrome and go to `chrome://extensions/`
    - Enable "Developer mode" (top right)
    - Click "Load unpacked"
@@ -65,54 +79,107 @@ npm run dev
 
 This watches for file changes and rebuilds automatically. You'll need to click the refresh button in `chrome://extensions/` after each rebuild.
 
+### Testing
+
+Run the test suite:
+```bash
+npm test                  # Run tests in watch mode
+npm run test:run          # Run tests once (CI mode)
+npm run test:coverage     # Generate coverage report
+npm run test:ui           # Interactive test UI
+```
+
 ## Project Structure
 
 ```
 marginalia/
 ├── src/
-│   ├── App.tsx           # Main React component with tabbed interface
-│   ├── background.ts     # Service worker for tab change detection
-│   ├── sidebarLogic.ts   # Chrome API utilities
-│   ├── types.ts          # TypeScript type definitions
-│   ├── main.tsx          # React entry point
-│   └── index.css         # Tailwind styles
+│   ├── App.tsx              # Main React component with tabbed interface
+│   ├── options.tsx          # Options page component
+│   ├── background.ts        # Service worker for tab change detection
+│   ├── sidebarLogic.ts      # Chrome API utilities
+│   ├── firebaseConfig.ts    # Firebase initialization
+│   ├── authService.ts       # Email/password authentication
+│   ├── firebaseSync.ts      # Firestore sync operations
+│   ├── types.ts             # TypeScript type definitions
+│   ├── main.tsx             # React entry point
+│   └── index.css            # Tailwind styles
+├── tests/
+│   ├── setup.ts            # Test configuration
+│   ├── unit/               # Unit tests
+│   └── components/         # Component tests
 ├── public/
-│   └── manifest.json     # Chrome extension manifest
-├── index.html            # Side panel HTML
-└── vite.config.ts        # Vite build configuration
+│   ├── manifest.json        # Chrome extension manifest
+│   └── assets/              # Icon files
+├── index.html               # Side panel HTML
+├── options.html             # Options page HTML
+├── vitest.config.ts         # Vitest configuration
+└── vite.config.ts           # Vite build configuration
 ```
 
 ## How It Works
 
-1. Click the extension icon to open the side panel
-2. The panel shows your current browsing context (domain, subdomain, path)
-3. Switch between tabs to view notes at different scope levels
-4. Add notes using the input field - they're automatically saved to the appropriate scope
-5. When you switch tabs or navigate to new URLs, the panel updates to show relevant notes
+1. Open the extension options page to create an account or sign in
+2. Click the extension icon to open the side panel
+3. The panel shows your current browsing context (domain, subdomain, path)
+4. Switch between tabs to view notes at different scope levels
+5. Add notes using the input field - they're automatically saved and synced
+6. Notes sync in real-time across all your devices
+7. Works offline with automatic sync when reconnected
+8. Right-click the extension icon → Options to manage your account
 
-## Storage Structure
+## Icon Requirements
 
-Notes are stored in Chrome's local storage with keys like:
-- `notes:browser` - Browser-wide notes
-- `notes:domain:example.com` - Domain-specific notes
-- `notes:subdomain:app.example.com` - Subdomain-specific notes
-- `notes:page:app.example.com/dashboard` - Page-specific notes
+Extension requires the following icon sizes in PNG format:
+- **16x16** - Toolbar display (most critical for visibility)
+- **32x32** - Toolbar at 2x DPI
+- **48x48** - Extension management page
+- **128x128** - Chrome Web Store and installation
 
-## Available Scripts
+**Design Tips:**
+- Use bold lines and high contrast for visibility at 16x16
+- Design must work on both light and dark browser themes
+- Chrome doesn't support theme-aware icons
+- Test 16x16 icon at actual size before finalizing
 
-- `npm run dev` - Development build with watch mode
-- `npm run build` - Production build
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+## Testing
 
-## Copyright
+The project includes a comprehensive test suite using Vitest and React Testing Library:
 
-Copyright © 2025 Brian Crucitti. All rights reserved.
+- **Unit Tests** - Test utility functions and services
+- **Component Tests** - Test React components and user interactions
+- **Mocked Dependencies** - Chrome APIs and Firebase fully mocked
+- **Promise-Based Patterns** - Reliable async testing without flaky timeouts
 
-This software and its source code are proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
+See [TESTING.md](TESTING.md) for detailed testing documentation.
+
+## Development Workflow
+
+1. Make your changes in `src/`
+2. Run tests: `npm test`
+3. Build: `npm run build`
+4. Refresh extension in `chrome://extensions/`
+5. Test in the browser
+6. Check service worker console for errors
+
+## Firebase Setup
+
+1. Create Firebase project at console.firebase.google.com
+2. Enable Firestore Database (start in test mode)
+3. Enable Email/Password Authentication in Authentication > Sign-in method
+4. Add security rules:
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+5. Add your config to `src/firebaseConfig.ts`
 
 ## License
 
-Proprietary - All Rights Reserved
-
-This code is private and confidential. No part of this software may be reproduced, distributed, or transmitted in any form without prior written permission from the copyright holder.
+UNLICENSED - This is proprietary software. All rights reserved.
