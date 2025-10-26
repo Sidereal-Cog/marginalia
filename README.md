@@ -14,11 +14,13 @@ A cross-browser extension for context-aware note-taking that organizes your note
 
 **Cross-Device Sync** - Firebase integration for real-time sync across all your devices with offline support.
 
+**Email/Password Authentication** - Secure multi-user support with sign up, sign in, and password reset functionality.
+
 **Side Panel/Sidebar Interface** - Clean, always-accessible panel with tabbed navigation for different note scopes.
 
 **Smart Context Detection** - Automatically detects URL changes and shows relevant notes as you browse.
 
-**Options Page** - Access extension information and usage guide via right-click → Options.
+**Enhanced Onboarding** - Welcome screen with clear value proposition and easy account creation.
 
 ## Tech Stack
 
@@ -30,7 +32,7 @@ A cross-browser extension for context-aware note-taking that organizes your note
 - **Firebase** - Cloud sync and email/password authentication
 - **WebExtension Polyfill** - Cross-browser compatibility
 - **Chrome Extension Manifest V3** - Side panel API
-- **Vitest** - Testing framework
+- **Vitest** - Testing framework with 60+ tests
 
 ## Getting Started
 
@@ -100,84 +102,31 @@ npm run build:firefox
    - Click "Load Temporary Add-on"
    - Navigate to `dist/firefox` and select `manifest.json`
 
-**Note:** Firefox temporary add-ons are removed when Firefox closes. For permanent installation, you'll need to sign the extension through addons.mozilla.org.
+**Note:** Firefox temporary add-ons are removed when Firefox closes. For persistent installation, submit to Firefox Add-ons (AMO).
 
-### Development
+## Usage
 
-During development, use browser-specific dev commands:
+### First Time Setup
 
-```bash
-# For Chrome development (default, fastest iteration)
-npm run dev
+1. Click the Marginalia extension icon in your browser toolbar
+2. You'll see a welcome screen with information about the extension
+3. Click the "Sign In or Create Account" button to open the options page
+4. Create a new account with your email and password, or sign in if you already have an account
+5. Return to the extension - you'll now be authenticated and ready to take notes
 
-# For Firefox development
-npm run dev:firefox
-```
+### Daily Use
 
-Both commands watch for file changes and rebuild automatically. Remember to refresh the extension after each rebuild:
-- **Chrome:** Click the refresh button in `chrome://extensions/`
-- **Firefox:** Click "Reload" in `about:debugging`
-
-### Building for Release
-
-To build both browser versions:
-
-```bash
-npm run build        # Builds both Chrome and Firefox versions
-npm run package      # Builds and creates zip files for both browsers
-```
-
-This creates:
-- `releases/marginalia-chrome-{version}.zip`
-- `releases/marginalia-firefox-{version}.zip`
-
-### Testing
-
-Run the test suite:
-```bash
-npm test                  # Run tests in watch mode
-npm run test:run          # Run tests once (CI mode)
-npm run test:coverage     # Generate coverage report
-npm run test:ui           # Interactive test UI
-```
-
-## Project Structure
-
-```
-marginalia/
-├── src/
-│   ├── App.tsx              # Main React component with tabbed interface
-│   ├── options.tsx          # Options page component
-│   ├── background.ts        # Service worker for tab change detection
-│   ├── sidebarLogic.ts      # Browser API utilities
-│   ├── firebaseConfig.ts    # Firebase initialization
-│   ├── authService.ts       # Email/password authentication
-│   ├── firebaseSync.ts      # Firestore sync operations
-│   ├── types.ts             # TypeScript type definitions
-│   ├── main.tsx             # React entry point
-│   └── index.css            # Tailwind styles
-├── tests/
-│   ├── setup.ts            # Test configuration
-│   ├── unit/               # Unit tests
-│   └── components/         # Component tests
-├── manifest-chrome.json    # Chrome-specific manifest
-├── manifest-firefox.json   # Firefox-specific manifest
-├── index.html               # Side panel HTML
-├── options.html             # Options page HTML
-├── vitest.config.ts         # Vitest configuration
-└── vite.config.ts           # Vite build configuration
-```
-
-## How It Works
-
-1. Open the extension options page to create an account or sign in
-2. Click the extension icon to open the side panel/sidebar
-3. The panel shows your current browsing context (domain, subdomain, path)
-4. Switch between tabs to view notes at different scope levels
-5. Add notes using the input field - they're automatically saved and synced
-6. Notes sync in real-time across all your devices
-7. Works offline with automatic sync when reconnected
-8. Right-click the extension icon → Options to manage your account
+1. Click the extension icon to open the side panel/sidebar
+2. The panel shows your current browsing context (domain, subdomain, path)
+3. Switch between tabs to view notes at different scope levels:
+   - **Page** - Notes for the specific page you're on
+   - **Subdomain** - Notes for the entire subdomain (e.g., app.example.com)
+   - **Domain** - Notes for the entire domain (e.g., example.com)
+   - **Browser** - Notes available everywhere
+4. Add notes using the input field - they're automatically saved and synced
+5. Notes sync in real-time across all your devices
+6. Works offline with automatic sync when reconnected
+7. Right-click the extension icon → Options to manage your account
 
 ## Icon Requirements
 
@@ -199,8 +148,16 @@ The project includes a comprehensive test suite using Vitest and React Testing L
 
 - **Unit Tests** - Test utility functions and services
 - **Component Tests** - Test React components and user interactions
+- **Auth Integration Tests** - Full authentication flow coverage (21 tests)
 - **Mocked Dependencies** - Browser APIs and Firebase fully mocked
 - **Promise-Based Patterns** - Reliable async testing without flaky timeouts
+
+```bash
+npm test                  # Run tests in watch mode
+npm run test:run          # Run tests once (CI mode)
+npm run test:coverage     # Generate coverage report
+npm run test:ui           # Interactive test UI
+```
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 
@@ -231,6 +188,16 @@ service cloud.firestore {
 }
 ```
 5. Add your config to `src/firebaseConfig.ts`
+
+## Project Structure
+
+- `src/App.tsx` - Main UI component with auth state management
+- `src/options.tsx` - Options page with authentication UI
+- `src/authService.ts` - Email/password authentication logic
+- `src/firebaseSync.ts` - Cloud sync operations
+- `src/sidebarLogic.ts` - Browser API utilities
+- `src/background.ts` - Service worker for tab detection
+- `tests/` - Comprehensive test suite
 
 ## License
 
