@@ -1,0 +1,52 @@
+{
+  "name": "Marginalia",
+  "description": "Scribbles in the sidebar",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "developer@marginalia-extension.com",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.firebaseapp.com/*",
+    "https://*.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
+  ],
+  "sidebar_action": {
+    "default_title": "Marginalia",
+    "default_panel": "index.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "32": "assets/icon32.png"
+    }
+  },
+  "background": {
+    "scripts": ["service-worker.js"],
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Marginalia",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "32": "assets/icon32.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "19": "assets/icon19.png",
+    "32": "assets/icon32.png",
+    "38": "assets/icon38.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

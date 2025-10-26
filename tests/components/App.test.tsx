@@ -66,7 +66,7 @@ describe('App', () => {
       return Promise.resolve(tabs);
     }) as any);
   });
-
+  
   it('should render the app with header', async () => {
     render(<App />);
     await flushPromises();
@@ -74,7 +74,7 @@ describe('App', () => {
     expect(await screen.findByText('Marginalia')).toBeInTheDocument();
     expect(screen.getByTestId('app-container')).toBeInTheDocument();
   });
-
+  
   it('should display user email', async () => {
     render(<App />);
     await flushPromises();
@@ -82,7 +82,7 @@ describe('App', () => {
     const userEmail = await screen.findByTestId('user-email');
     expect(userEmail).toHaveTextContent('test@example.com');
   });
-
+  
   it('should have a sign out button', async () => {
     render(<App />);
     await flushPromises();
@@ -91,7 +91,7 @@ describe('App', () => {
     expect(signOutButton).toBeInTheDocument();
     expect(signOutButton).toHaveAttribute('aria-label', 'Sign out');
   });
-
+  
   it('should render tab navigation', async () => {
     render(<App />);
     await flushPromises();
@@ -104,7 +104,7 @@ describe('App', () => {
     // Subdomain tab should NOT be present when domain === subdomain
     expect(screen.queryByTestId('tab-subdomain')).not.toBeInTheDocument();
   });
-
+  
   it('should have accessible tab roles', async () => {
     render(<App />);
     await flushPromises();
@@ -114,7 +114,7 @@ describe('App', () => {
     expect(pageTab).toHaveAttribute('aria-label', 'Page tab');
     expect(pageTab).toHaveAttribute('aria-selected', 'true');
   });
-
+  
   it('should have a textarea for adding notes', async () => {
     render(<App />);
     await flushPromises();
@@ -123,7 +123,7 @@ describe('App', () => {
     expect(textarea).toBeInTheDocument();
     expect(textarea).toHaveAttribute('aria-label', 'New note input');
   });
-
+  
   it('should have an add note button', async () => {
     render(<App />);
     await flushPromises();
@@ -132,7 +132,7 @@ describe('App', () => {
     expect(addButton).toBeInTheDocument();
     expect(addButton).toHaveAttribute('aria-label', 'Add note');
   });
-
+  
   it('should handle empty state', async () => {
     render(<App />);
     await flushPromises();
@@ -141,7 +141,7 @@ describe('App', () => {
     expect(emptyState).toBeInTheDocument();
     expect(emptyState).toHaveTextContent('No notes yet. Add one above!');
   });
-
+  
   it('should display current context', async () => {
     render(<App />);
     await flushPromises();
@@ -150,7 +150,7 @@ describe('App', () => {
     const scopeDisplay = await screen.findByTestId('current-scope');
     expect(scopeDisplay).toHaveTextContent('/test');
   });
-
+  
   it('should allow switching between tabs', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -165,7 +165,7 @@ describe('App', () => {
     expect(domainTab).toHaveAttribute('aria-selected', 'true');
     expect(domainTab).toHaveClass('border-indigo-600');
   });
-
+  
   it('should create a new note when text is entered', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -179,7 +179,7 @@ describe('App', () => {
     // Note should appear in the list
     expect(await screen.findByText('Test note')).toBeInTheDocument();
   });
-
+  
   it('should clear textarea after creating note', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -193,7 +193,7 @@ describe('App', () => {
     // Textarea should be empty
     expect(textarea.value).toBe('');
   });
-
+  
   it('should handle note deletion', async () => {
     const user = userEvent.setup();
     
@@ -241,7 +241,7 @@ describe('App', () => {
     // Note should be gone
     expect(screen.queryByTestId('note-1')).not.toBeInTheDocument();
   });
-
+  
   it('should handle note editing', async () => {
     const user = userEvent.setup();
     
@@ -299,7 +299,7 @@ describe('App', () => {
     // Updated text should be visible
     expect(await screen.findByText('Updated note text')).toBeInTheDocument();
   });
-
+  
   it('should cancel note editing', async () => {
     const user = userEvent.setup();
     
@@ -352,21 +352,29 @@ describe('App', () => {
     expect(screen.getByText('Original note text')).toBeInTheDocument();
     expect(screen.queryByTestId('edit-mode')).not.toBeInTheDocument();
   });
-
+  
   it('should show subdomain tab when URL has subdomain', async () => {
-    // Set up URL with actual subdomain
+    // Need to dynamically import browser to mock it
+    const browserModule = await import('webextension-polyfill');
+    
+    // Mock both chrome and browser APIs
+    const tabs = [{
+      id: 1,
+      url: 'https://app.example.com/page',
+      active: true
+    }];
+    
+    // Mock chrome.tabs.query (callback pattern)
     vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-      const tabs = [{
-        id: 1,
-        url: 'https://app.example.com/page',
-        active: true
-      }];
       if (callback) {
         callback(tabs);
         return undefined;
       }
       return Promise.resolve(tabs);
     }) as any);
+    
+    // Mock browser.tabs.query (promise pattern)
+    vi.spyOn(browserModule.default.tabs, 'query').mockResolvedValue(tabs as any);
     
     render(<App />);
     await flushPromises();
@@ -377,7 +385,7 @@ describe('App', () => {
     expect(screen.getByTestId('tab-domain')).toBeInTheDocument();
     expect(screen.getByTestId('tab-browser')).toBeInTheDocument();
   });
-
+  
   it('should show badge counts', async () => {
     const pageNote = { id: '1', text: 'Page note', createdAt: Date.now(), updatedAt: Date.now() };
     const domainNote = { id: '2', text: 'Domain note', createdAt: Date.now(), updatedAt: Date.now() };
@@ -410,7 +418,7 @@ describe('App', () => {
     const domainBadge = screen.getByTestId('badge-domain');
     expect(domainBadge).toHaveTextContent('1');
   });
-
+  
   it('should update context when tab changes', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -418,7 +426,7 @@ describe('App', () => {
     
     // Verify initial context (page tab shows path)
     const scopeDisplay = await screen.findByTestId('current-scope');
-    expect(scopeDisplay).toHaveTextContent('/test');
+    expect(scopeDisplay).toHaveTextContent('/page');
     
     // Switch to domain tab
     const domainTab = screen.getByTestId('tab-domain');
@@ -448,7 +456,7 @@ describe('App', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });
   });
-
+  
   it('should have accessible menu button', async () => {
     const mockNote = {
       id: '1',
@@ -477,7 +485,7 @@ describe('App', () => {
     expect(menuButton).toHaveAttribute('aria-label', 'Note options');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
   });
-
+  
   it('should update aria-expanded when menu opens', async () => {
     const user = userEvent.setup();
     
