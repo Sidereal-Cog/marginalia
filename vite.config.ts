@@ -1,33 +1,33 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { fileURLToPath } from 'url'
-import { dirname, resolve } from 'path'
-import { copyFileSync, mkdirSync } from 'fs'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+import { copyFileSync, mkdirSync } from 'fs';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Plugin to copy the correct manifest file based on build mode
 function manifestPlugin(browser: 'chrome' | 'firefox') {
   return {
     name: 'copy-manifest',
     closeBundle() {
-      const manifestSrc = resolve(__dirname, `manifest-${browser}.json`)
-      const manifestDest = resolve(__dirname, `dist/${browser}/manifest.json`)
+      const manifestSrc = resolve(__dirname, `manifest-${browser}.json`);
+      const manifestDest = resolve(__dirname, `dist/${browser}/manifest.json`);
       
       try {
-        mkdirSync(dirname(manifestDest), { recursive: true })
-        copyFileSync(manifestSrc, manifestDest)
-        console.log(`✓ Copied ${browser} manifest to dist/${browser}/`)
+        mkdirSync(dirname(manifestDest), { recursive: true });
+        copyFileSync(manifestSrc, manifestDest);
+        console.log(`✓ Copied ${browser} manifest to dist/${browser}/`);
       } catch (error) {
-        console.error(`Failed to copy ${browser} manifest:`, error)
+        console.error(`Failed to copy ${browser} manifest:`, error);
       }
     }
-  }
+  };
 }
 
 export default defineConfig(({ mode }) => {
-  const browser = (mode === 'firefox' ? 'firefox' : 'chrome') as 'chrome' | 'firefox'
+  const browser = (mode === 'firefox' ? 'firefox' : 'chrome') as 'chrome' | 'firefox';
   
   return {
     plugins: [react(), manifestPlugin(browser)],
@@ -45,9 +45,9 @@ export default defineConfig(({ mode }) => {
         output: {
           entryFileNames: (chunkInfo) => {
             if (chunkInfo.name === 'background') {
-              return 'service-worker.js'
+              return 'service-worker.js';
             }
-            return 'assets/[name]-[hash].js'
+            return 'assets/[name]-[hash].js';
           },
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
@@ -61,5 +61,5 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       strictPort: true,
     },
-  }
-})
+  };
+});

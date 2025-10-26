@@ -13,7 +13,8 @@ export default tseslint.config(
       ecmaVersion: 2020,
       globals: {
         ...globals.browser,
-        'chrome': 'on'
+        chrome: 'readonly',
+        browser: 'readonly', // For webextension-polyfill
       },
     },
     plugins: {
@@ -26,9 +27,9 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
-      "semi": [ "error", "always" ],
-      "no-unused-vars": "warn",
-      "plugin:@typescript-eslint/recommended": "warn"
+      'semi': ['error', 'always'],
+      '@typescript-eslint/no-unused-vars': 'warn',
+      "@typescript-eslint/no-explicit-any": "off"
     },
   },
 )

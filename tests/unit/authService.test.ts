@@ -12,7 +12,7 @@ const createMockAuth = () => ({
   currentUser: null as any
 });
 
-let mockAuth = createMockAuth();
+const mockAuth = createMockAuth();
 
 // Mock Firebase auth module BEFORE imports
 vi.mock('firebase/auth', () => ({
