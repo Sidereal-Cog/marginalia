@@ -1,5 +1,4 @@
-/// <reference types="chrome"/>
-
+import browser from 'webextension-polyfill';
 import type { UrlContext, NoteScope, TabChangeMessage, Note } from './types';
 import { FirebaseSync } from './firebaseSync';
 import { getCurrentUserId } from './authService';
@@ -20,7 +19,7 @@ export const initializeSync = async (): Promise<void> => {
   syncService = new FirebaseSync(userId);
   
   // Check if we need to migrate local notes
-  const migrationStatus = await chrome.storage.local.get('_migrated_to_firebase');
+  const migrationStatus = await browser.storage.local.get('_migrated_to_firebase');
   if (!migrationStatus._migrated_to_firebase) {
     console.log('Migrating local notes to Firebase...');
     await syncService.migrateLocalNotes();
@@ -65,15 +64,11 @@ export function parseUrlContext(url: string): UrlContext | null {
  * Get current active tab's context
  */
 export async function getCurrentTabContext(): Promise<UrlContext | null> {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]) => {
-      if (tabs[0] && tabs[0].url) {
-        resolve(parseUrlContext(tabs[0].url));
-      } else {
-        resolve(null);
-      }
-    });
-  });
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0] && tabs[0].url) {
+    return parseUrlContext(tabs[0].url);
+  }
+  return null;
 }
 
 /**
@@ -86,17 +81,21 @@ export function onTabContextChange(callback: (context: UrlContext | null) => voi
   };
 
   // Listen for background messages about tab changes
-  const messageListener = (message: TabChangeMessage) => {
-    if (message.type === 'TAB_CHANGED' || message.type === 'TAB_UPDATED') {
-      updateContext();
+  const messageListener = (message: unknown) => {
+    // Type guard for TabChangeMessage
+    if (typeof message === 'object' && message !== null && 'type' in message) {
+      const msg = message as TabChangeMessage;
+      if (msg.type === 'TAB_CHANGED' || msg.type === 'TAB_UPDATED') {
+        updateContext();
+      }
     }
   };
 
-  chrome.runtime.onMessage.addListener(messageListener);
+  browser.runtime.onMessage.addListener(messageListener);
 
   // Return cleanup function
   return () => {
-    chrome.runtime.onMessage.removeListener(messageListener);
+    browser.runtime.onMessage.removeListener(messageListener);
   };
 }
 
@@ -137,7 +136,7 @@ export async function saveNotes(scope: NoteScope, context: UrlContext, notes: No
   
   // Always save to local storage as backup
   const key = getStorageKey(scope, context);
-  await chrome.storage.local.set({ [key]: notes });
+  await browser.storage.local.set({ [key]: notes });
 }
 
 /**
@@ -155,7 +154,7 @@ export async function loadNotes(scope: NoteScope, context: UrlContext): Promise<
       
       // Update local cache
       const key = getStorageKey(scope, context);
-      await chrome.storage.local.set({ [key]: notes });
+      await browser.storage.local.set({ [key]: notes });
       
       return notes;
     } catch (error) {
@@ -165,6 +164,6 @@ export async function loadNotes(scope: NoteScope, context: UrlContext): Promise<
   
   // Fall back to local storage
   const key = getStorageKey(scope, context);
-  const result = await chrome.storage.local.get(key);
-  return result[key] || [];
+  const result = await browser.storage.local.get(key);
+  return (result[key] as Note[] | undefined) || [];
 }

@@ -1,11 +1,89 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
-// Mock Chrome APIsimport { vi } from 'vitest';
-
-// Mock Chrome APIs
+// Mock storage for tests
 const mockStorage: Record<string, any> = {};
 
+// Mock webextension-polyfill
+vi.mock('webextension-polyfill', () => ({
+  default: {
+    storage: {
+      local: {
+        get: vi.fn((keys: string | string[] | null) => {
+          if (keys === null) {
+            return Promise.resolve(mockStorage);
+          }
+          if (typeof keys === 'string') {
+            return Promise.resolve({ [keys]: mockStorage[keys] });
+          }
+          const result: Record<string, any> = {};
+          keys.forEach(key => {
+            if (key in mockStorage) {
+              result[key] = mockStorage[key];
+            }
+          });
+          return Promise.resolve(result);
+        }),
+        set: vi.fn((items: Record<string, any>) => {
+          Object.assign(mockStorage, items);
+          return Promise.resolve();
+        }),
+        remove: vi.fn((keys: string | string[]) => {
+          const keysArray = Array.isArray(keys) ? keys : [keys];
+          keysArray.forEach(key => delete mockStorage[key]);
+          return Promise.resolve();
+        }),
+        clear: vi.fn(() => {
+          Object.keys(mockStorage).forEach(key => delete mockStorage[key]);
+          return Promise.resolve();
+        })
+      }
+    },
+    tabs: {
+      query: vi.fn(() => Promise.resolve([{
+        id: 1,
+        url: 'https://example.com/test',
+        active: true
+      }])),
+      get: vi.fn((tabId: number) => Promise.resolve({
+        id: tabId,
+        url: 'https://example.com/test',
+        active: true
+      })),
+      onActivated: {
+        addListener: vi.fn()
+      },
+      onUpdated: {
+        addListener: vi.fn()
+      }
+    },
+    runtime: {
+      sendMessage: vi.fn(() => Promise.resolve()),
+      onMessage: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      onInstalled: {
+        addListener: vi.fn()
+      },
+      openOptionsPage: vi.fn().mockResolvedValue(undefined)
+    },
+    action: {
+      onClicked: {
+        addListener: vi.fn()
+      }
+    },
+    sidePanel: {
+      open: vi.fn(() => Promise.resolve()),
+      setPanelBehavior: vi.fn(() => Promise.resolve())
+    },
+    sidebarAction: {
+      toggle: vi.fn(() => Promise.resolve())
+    }
+  }
+}));
+
+// Also mock chrome for backward compatibility (tests that directly use chrome.*)
 global.chrome = {
   storage: {
     local: {

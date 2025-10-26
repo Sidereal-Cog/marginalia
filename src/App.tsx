@@ -285,14 +285,52 @@ export default function App() {
 
   // Unauthenticated state
   if (!isAuthenticated) {
+    const handleOpenOptions = async () => {
+      const browser = (await import('webextension-polyfill')).default;
+      browser.runtime.openOptionsPage();
+    };
+
     return (
-      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50 p-8">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome to Marginalia</h2>
-          <p className="text-sm text-gray-600">
-            Please complete authentication to use this extension.
-            You can create an account on the sign in page
-          </p>
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
+          <h1 className="text-xl font-semibold">Marginalia</h1>
+          <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            {/* Icon */}
+            <div className="mb-6 flex justify-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-semibold text-gray-800 mb-3">Welcome to Marginalia</h2>
+            
+            {/* Description */}
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+              Context-aware note-taking that follows you as you browse.
+              Sign in to start organizing your thoughts by page, domain, or keep them browser-wide.
+            </p>
+
+            {/* CTA Button */}
+            <button
+              onClick={handleOpenOptions}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+            >
+              <LogOut className="w-4 h-4 transform rotate-180" />
+              Sign In or Create Account
+            </button>
+
+            {/* Helper text */}
+            <p className="text-xs text-gray-500 mt-4">
+              Click above to open the sign-in page
+            </p>
+          </div>
         </div>
       </div>
     );

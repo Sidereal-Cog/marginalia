@@ -5,6 +5,25 @@ All notable changes to Marginalia will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-26
+
+### Added
+- Firefox support with cross-browser compatibility via webextension-polyfill
+- Enhanced logged-out experience with branded welcome screen and clear call-to-action
+- Automated build and packaging scripts for streamlined releases
+
+### Changed
+- Build system now creates separate Chrome and Firefox distribution packages
+- Dual manifest system for browser-specific configurations
+- Updated development workflow to support both browsers simultaneously
+
+### Technical
+- Integrated webextension-polyfill for unified browser API access
+- Separate build targets: `npm run build:chrome` and `npm run build:firefox`
+- Automated release packaging: `npm run package` creates zips for both browsers
+- Firefox-specific manifest with sidebar_action and browser_specific_settings
+- Chrome manifest uses side_panel for consistent experience
+
 ## [1.0.0] - 2025-10-25
 
 ### Initial Release
@@ -28,7 +47,7 @@ Marginalia is a Chrome extension for context-aware note-taking that organizes no
 **Sync & Offline**
 - Firebase integration for real-time cross-device sync
 - Offline support with local cache fallback
-- Anonymous authentication (no login required)
+- Email/password authentication
 - Automatic migration of existing local notes to cloud
 
 **User Interface**
