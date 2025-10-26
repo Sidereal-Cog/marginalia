@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { clearMockStorage, setMockStorage } from '../setup';
+import { clearMockStorage, setMockStorage, getMockStorage } from '../setup';
 import { Note } from '../../src/types';
+import browser from 'webextension-polyfill';
 
 // Create a mock Firebase sync service
 let mockFirebaseSyncInstance: any;
@@ -46,36 +47,16 @@ describe('sidebarLogic', () => {
       mockFirebaseSyncInstance.saveNotes = vi.fn().mockResolvedValue(undefined);
       mockFirebaseSyncInstance.loadNotes = vi.fn().mockResolvedValue([]);
     }
-    
-    // Set up default successful tab query response
-    vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-      const tabs = [{
-        id: 1,
-        url: 'https://example.com/test',
-        active: true
-      }];
-      if (callback) {
-        callback(tabs);
-        return undefined;
-      }
-      return Promise.resolve(tabs);
-    }) as any);
   });
 
   describe('getCurrentTabContext', () => {
     it('should extract context from a full URL', async () => {
-      vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-        const tabs = [{
-          id: 1,
-          url: 'https://app.example.com/dashboard?id=123',
-          active: true
-        }];
-        if (callback) {
-          callback(tabs);
-          return undefined;
-        }
-        return Promise.resolve(tabs);
-      }) as any);
+      // Mock browser.tabs.query to return a tab with subdomain
+      vi.mocked(browser.tabs.query).mockResolvedValue([{
+        id: 1,
+        url: 'https://app.example.com/dashboard?id=123',
+        active: true
+      }] as any);
 
       const context = await getCurrentTabContext();
 
@@ -86,18 +67,11 @@ describe('sidebarLogic', () => {
     });
 
     it('should handle URLs without subdomains', async () => {
-      vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-        const tabs = [{
-          id: 1,
-          url: 'https://example.com/page',
-          active: true
-        }];
-        if (callback) {
-          callback(tabs);
-          return undefined;
-        }
-        return Promise.resolve(tabs);
-      }) as any);
+      vi.mocked(browser.tabs.query).mockResolvedValue([{
+        id: 1,
+        url: 'https://example.com/page',
+        active: true
+      }] as any);
 
       const context = await getCurrentTabContext();
 
@@ -107,18 +81,11 @@ describe('sidebarLogic', () => {
     });
 
     it('should handle root paths', async () => {
-      vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-        const tabs = [{
-          id: 1,
-          url: 'https://example.com/',
-          active: true
-        }];
-        if (callback) {
-          callback(tabs);
-          return undefined;
-        }
-        return Promise.resolve(tabs);
-      }) as any);
+      vi.mocked(browser.tabs.query).mockResolvedValue([{
+        id: 1,
+        url: 'https://example.com/',
+        active: true
+      }] as any);
 
       const context = await getCurrentTabContext();
 
@@ -126,18 +93,11 @@ describe('sidebarLogic', () => {
     });
 
     it('should return null for invalid URLs', async () => {
-      vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
-        const tabs = [{
-          id: 1,
-          url: undefined, // undefined URL should cause parseUrlContext to return null
-          active: true
-        }];
-        if (callback) {
-          callback(tabs);
-          return undefined;
-        }
-        return Promise.resolve(tabs);
-      }) as any);
+      vi.mocked(browser.tabs.query).mockResolvedValue([{
+        id: 1,
+        url: undefined,
+        active: true
+      }] as any);
 
       const context = await getCurrentTabContext();
 
@@ -146,7 +106,7 @@ describe('sidebarLogic', () => {
   });
 
   describe('saveNotes', () => {
-    it('should save notes to chrome storage', async () => {
+    it('should save notes to browser storage', async () => {
       const notes: Note[] = [
         {
           id: '1',
@@ -166,8 +126,13 @@ describe('sidebarLogic', () => {
 
       await saveNotes('page', context, notes);
 
-      // Verify storage was called
-      expect(chrome.storage.local.set).toHaveBeenCalled();
+      // Check that browser.storage.local.set was called
+      expect(browser.storage.local.set).toHaveBeenCalled();
+      
+      // Verify the notes are in storage
+      const storage = getMockStorage();
+      const key = getStorageKey('page', context);
+      expect(storage[key]).toEqual(notes);
     });
 
     it('should handle empty notes array', async () => {
@@ -182,7 +147,7 @@ describe('sidebarLogic', () => {
       await saveNotes('page', context, []);
 
       // Should still save (empty array)
-      expect(chrome.storage.local.set).toHaveBeenCalled();
+      expect(browser.storage.local.set).toHaveBeenCalled();
     });
   });
 

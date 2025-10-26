@@ -1,6 +1,8 @@
 # Marginalia
 
-A Chrome extension for context-aware note-taking that organizes your notes by URL scope (browser-wide, domain, subdomain, or page-specific) with Firebase sync across devices.
+A cross-browser extension for context-aware note-taking that organizes your notes by URL scope (browser-wide, domain, subdomain, or page-specific) with Firebase sync across devices.
+
+**Supported Browsers:** Chrome, Brave, Firefox
 
 ## Features
 
@@ -12,7 +14,7 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 
 **Cross-Device Sync** - Firebase integration for real-time sync across all your devices with offline support.
 
-**Side Panel Interface** - Clean, always-accessible sidebar with tabbed navigation for different note scopes.
+**Side Panel/Sidebar Interface** - Clean, always-accessible panel with tabbed navigation for different note scopes.
 
 **Smart Context Detection** - Automatically detects URL changes and shows relevant notes as you browse.
 
@@ -26,6 +28,7 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 - **Vite** - Build tool
 - **Lucide React** - Icons
 - **Firebase** - Cloud sync and email/password authentication
+- **WebExtension Polyfill** - Cross-browser compatibility
 - **Chrome Extension Manifest V3** - Side panel API
 - **Vitest** - Testing framework
 
@@ -34,7 +37,7 @@ A Chrome extension for context-aware note-taking that organizes your notes by UR
 ### Prerequisites
 
 - Node.js (v18 or higher recommended)
-- Chrome or Brave browser
+- Chrome, Brave, or Firefox browser
 - Firebase project (for sync features)
 
 ### Installation
@@ -57,27 +60,76 @@ npm install
 
 4. Add extension icons:
    - Place icon files (16x16, 32x32, 48x48, 128x128 PNG) in `public/assets/`
-   - Update `public/manifest.json` with icon paths
+   - Update both `manifest-chrome.json` and `manifest-firefox.json` with icon paths
 
-5. Build the extension:
+5. **Firefox only:** Update the addon ID in `manifest-firefox.json`:
+   ```json
+   "browser_specific_settings": {
+     "gecko": {
+       "id": "marginalia@yourdomain.com"
+     }
+   }
+   ```
+
+## Multi-Browser Support
+
+Marginalia supports both Chrome/Brave and Firefox browsers with a single codebase.
+
+### Chrome/Brave Installation
+
+1. Build the Chrome version:
 ```bash
-npm run build
+npm run build:chrome
 ```
 
-6. Load the extension in Chrome:
+2. Load the extension in Chrome:
    - Open Chrome and go to `chrome://extensions/`
    - Enable "Developer mode" (top right)
    - Click "Load unpacked"
-   - Select the `dist` folder from your project
+   - Select the `dist/chrome` folder
+
+### Firefox Installation
+
+1. Build the Firefox version:
+```bash
+npm run build:firefox
+```
+
+2. Load the extension in Firefox:
+   - Open Firefox and go to `about:debugging#/runtime/this-firefox`
+   - Click "Load Temporary Add-on"
+   - Navigate to `dist/firefox` and select `manifest.json`
+
+**Note:** Firefox temporary add-ons are removed when Firefox closes. For permanent installation, you'll need to sign the extension through addons.mozilla.org.
 
 ### Development
 
-Run the development build with hot reload:
+During development, use browser-specific dev commands:
+
 ```bash
+# For Chrome development (default, fastest iteration)
 npm run dev
+
+# For Firefox development
+npm run dev:firefox
 ```
 
-This watches for file changes and rebuilds automatically. You'll need to click the refresh button in `chrome://extensions/` after each rebuild.
+Both commands watch for file changes and rebuild automatically. Remember to refresh the extension after each rebuild:
+- **Chrome:** Click the refresh button in `chrome://extensions/`
+- **Firefox:** Click "Reload" in `about:debugging`
+
+### Building for Release
+
+To build both browser versions:
+
+```bash
+npm run build        # Builds both Chrome and Firefox versions
+npm run package      # Builds and creates zip files for both browsers
+```
+
+This creates:
+- `releases/marginalia-chrome-{version}.zip`
+- `releases/marginalia-firefox-{version}.zip`
 
 ### Testing
 
@@ -97,7 +149,7 @@ marginalia/
 │   ├── App.tsx              # Main React component with tabbed interface
 │   ├── options.tsx          # Options page component
 │   ├── background.ts        # Service worker for tab change detection
-│   ├── sidebarLogic.ts      # Chrome API utilities
+│   ├── sidebarLogic.ts      # Browser API utilities
 │   ├── firebaseConfig.ts    # Firebase initialization
 │   ├── authService.ts       # Email/password authentication
 │   ├── firebaseSync.ts      # Firestore sync operations
@@ -108,9 +160,8 @@ marginalia/
 │   ├── setup.ts            # Test configuration
 │   ├── unit/               # Unit tests
 │   └── components/         # Component tests
-├── public/
-│   ├── manifest.json        # Chrome extension manifest
-│   └── assets/              # Icon files
+├── manifest-chrome.json    # Chrome-specific manifest
+├── manifest-firefox.json   # Firefox-specific manifest
 ├── index.html               # Side panel HTML
 ├── options.html             # Options page HTML
 ├── vitest.config.ts         # Vitest configuration
@@ -120,7 +171,7 @@ marginalia/
 ## How It Works
 
 1. Open the extension options page to create an account or sign in
-2. Click the extension icon to open the side panel
+2. Click the extension icon to open the side panel/sidebar
 3. The panel shows your current browsing context (domain, subdomain, path)
 4. Switch between tabs to view notes at different scope levels
 5. Add notes using the input field - they're automatically saved and synced
@@ -148,7 +199,7 @@ The project includes a comprehensive test suite using Vitest and React Testing L
 
 - **Unit Tests** - Test utility functions and services
 - **Component Tests** - Test React components and user interactions
-- **Mocked Dependencies** - Chrome APIs and Firebase fully mocked
+- **Mocked Dependencies** - Browser APIs and Firebase fully mocked
 - **Promise-Based Patterns** - Reliable async testing without flaky timeouts
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
@@ -157,10 +208,11 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 1. Make your changes in `src/`
 2. Run tests: `npm test`
-3. Build: `npm run build`
-4. Refresh extension in `chrome://extensions/`
-5. Test in the browser
-6. Check service worker console for errors
+3. Build: `npm run build` (builds both browsers)
+4. Test in Chrome: Load `dist/chrome` in `chrome://extensions/`
+5. Test in Firefox: Load `dist/firefox` in `about:debugging`
+6. Check service worker/background console for errors
+7. Verify all features work identically in both browsers
 
 ## Firebase Setup
 

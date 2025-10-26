@@ -15,12 +15,12 @@ function getVersion() {
   return pkg.version;
 }
 
-async function createZip() {
+async function createZip(browser) {
   try {
     const version = getVersion();
     const outputDir = resolve(__dirname, '../releases');
-    const outputPath = resolve(outputDir, `marginalia-${version}.zip`);
-    const distPath = resolve(__dirname, '../dist');
+    const outputPath = resolve(outputDir, `marginalia-${browser}-${version}.zip`);
+    const distPath = resolve(__dirname, `../dist/${browser}`);
 
     // Create releases directory if it doesn't exist
     mkdirSync(outputDir, { recursive: true });
@@ -34,7 +34,7 @@ async function createZip() {
     // Listen for completion
     output.on('close', () => {
       const sizeInMB = (archive.pointer() / 1024 / 1024).toFixed(2);
-      console.log(`✓ Created: releases/marginalia-${version}.zip`);
+      console.log(`✓ Created: releases/marginalia-${browser}-${version}.zip`);
       console.log(`  Size: ${sizeInMB} MB (${archive.pointer()} bytes)`);
     });
 
@@ -55,15 +55,22 @@ async function createZip() {
     archive.pipe(output);
 
     // Add the dist directory contents
-    console.log(`Building marginalia-${version}.zip...`);
+    console.log(`Building marginalia-${browser}-${version}.zip...`);
     archive.directory(distPath, false);
 
     // Finalize the archive
     await archive.finalize();
   } catch (error) {
-    console.error('Error creating release package:', error.message);
+    console.error(`Error creating ${browser} release package:`, error.message);
     process.exit(1);
   }
 }
 
-createZip();
+async function createAllZips() {
+  console.log('Creating release packages for all browsers...\n');
+  await createZip('chrome');
+  await createZip('firefox');
+  console.log('\n✓ All release packages created successfully!');
+}
+
+createAllZips();
