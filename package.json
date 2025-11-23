@@ -2,8 +2,9 @@
   "name": "marginalia",
   "private": true,
   "version": "1.1.1",
+  "author": "Sidereal Cog",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "dev": "vite build --watch --mode chrome",
     "dev:firefox": "vite build --watch --mode firefox",
