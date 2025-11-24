@@ -135,12 +135,12 @@ describe( 'App', () => {
       it('should show FileText icon badge', async () => {
         render(<App />);
         await flushPromises();
-        
-        // Check for the icon container with gradient
+
+        // Check for the icon container with stellar blue background
         const iconContainer = screen.getByText('Welcome to Marginalia')
         .closest('div')
-        ?.querySelector('.bg-gradient-to-br');
-        
+        ?.querySelector('.bg-stellar-blue');
+
         expect(iconContainer).toBeInTheDocument();
       });
       
@@ -717,15 +717,15 @@ describe( 'App', () => {
       const user = userEvent.setup();
       render(<App />);
       await flushPromises();
-      
+
       // Click on Domain tab
       const domainTab = await screen.findByTestId('tab-domain');
       await user.click(domainTab);
       await flushPromises();
-      
+
       // Verify tab is now selected
       expect(domainTab).toHaveAttribute('aria-selected', 'true');
-      expect(domainTab).toHaveClass('border-indigo-600');
+      expect(domainTab).toHaveClass('border-stellar-blue');
     });
     
     it('should create a new note when text is entered', async () => {
