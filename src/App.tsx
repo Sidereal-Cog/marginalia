@@ -299,7 +299,7 @@ export default function App() {
   // Loading state
   if (isAuthLoading) {
     return (
-      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-white">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
@@ -313,11 +313,11 @@ export default function App() {
     };
 
     return (
-      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-white">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
+        <div className="bg-deep-navy text-white p-4 shadow-lg flex-shrink-0">
           <h1 className="text-xl font-semibold">Marginalia</h1>
-          <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
+          <p className="text-xs text-silver">Scribbles in the sidebar</p>
         </div>
 
         {/* Content */}
@@ -325,7 +325,7 @@ export default function App() {
           <div className="text-center max-w-md">
             {/* Icon */}
             <div className="mb-6 flex justify-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-stellar-blue rounded-full flex items-center justify-center shadow-lg">
                 <FileText className="w-8 h-8 text-white" />
               </div>
             </div>
@@ -342,7 +342,7 @@ export default function App() {
             {/* CTA Button */}
             <button
               onClick={handleOpenOptions}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-stellar-blue text-white font-medium rounded-lg shadow-lg hover:shadow-xl hover:bg-blue-600 transition-all duration-200 transform hover:scale-105"
             >
               <LogOut className="w-4 h-4 transform rotate-180" />
               Sign In or Create Account
@@ -359,14 +359,14 @@ export default function App() {
   }
 
   return (
-    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50" data-testid="app-container">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
+    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-white" data-testid="app-container">
+      <div className="bg-deep-navy text-white p-4 shadow-lg flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-semibold">Marginalia</h1>
           <div className="flex items-center gap-2">
             {userEmail && (
-              <span 
-                className="text-xs text-indigo-100 truncate max-w-[150px]" 
+              <span
+                className="text-xs text-silver truncate max-w-[150px]"
                 title={userEmail}
                 data-testid="user-email"
               >
@@ -384,7 +384,7 @@ export default function App() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
+        <p className="text-xs text-silver">Scribbles in the sidebar</p>
       </div>
 
       {/* Email Verification Banner */}
@@ -428,15 +428,15 @@ export default function App() {
               data-testid={`tab-${tab.scope}`}
               className={`flex-1 py-3 px-1 sm:px-2 text-xs sm:text-sm font-medium transition-colors flex flex-col items-center gap-1 relative ${
                 tabValue === idx
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                  ? 'text-stellar-blue border-b-2 border-stellar-blue bg-blue-50'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               <div className="relative">
                 <Icon size={18} />
                 {noteCount > 0 && (
-                  <span 
-                    className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                  <span
+                    className="absolute -top-1 -right-1 bg-stellar-blue text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
                     aria-label={`${noteCount} notes`}
                     data-testid={`badge-${tab.scope}`}
                   >
@@ -473,7 +473,7 @@ export default function App() {
               rows={1}
               aria-label="New note input"
               data-testid="new-note-input"
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue resize-none overflow-hidden"
               style={{
                 minHeight: '38px',
                 height: 'auto'
@@ -484,11 +484,11 @@ export default function App() {
                 target.style.height = target.scrollHeight + 'px';
               }}
             />
-            <button 
+            <button
               onClick={handleAddNote}
               aria-label="Add note"
               data-testid="add-note-button"
-              className="flex-shrink-0 p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-start"
+              className="flex-shrink-0 p-2 bg-stellar-blue text-white rounded-md hover:bg-blue-600 transition-colors self-start"
             >
               <Plus size={20} />
             </button>
@@ -516,7 +516,7 @@ export default function App() {
                         onChange={(e) => setEditText(e.target.value)}
                         aria-label="Edit note"
                         data-testid="edit-note-input"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue resize-none overflow-hidden"
                         rows={1}
                       />
                       <div className="flex gap-2">
@@ -524,7 +524,7 @@ export default function App() {
                           onClick={() => handleSaveEdit(note.id)}
                           aria-label="Save edit"
                           data-testid="save-edit-button"
-                          className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                          className="px-3 py-1 bg-stellar-blue text-white text-sm rounded hover:bg-blue-600"
                         >
                           Save
                         </button>
