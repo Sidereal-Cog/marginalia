@@ -68,14 +68,26 @@ useEffect(() => {
 - **Path escaping**: Replace `/` with `~` in Firestore document paths
 - **Subscriptions**: Subscribe to Firestore changes for all scopes in App.tsx
 - **Offline handling**: Always wrap Firebase calls in try/catch with local cache fallback
+- **Email verification**: Users must verify email before accessing notes (enforced in Firestore rules)
+- **Rate limiting**: Client-side throttling prevents writes faster than 1 req/sec per context
+- **Data validation**: Max 100 notes per context, max 50KB per note (enforced client and server-side)
+- **Security rules deployment**: Run `npm run firebase:deploy` to deploy firestore.rules
 
 ### Authentication Flow
 - **authService.ts** - All Firebase auth operations (sign up, sign in, password reset, sign out)
+  - `signUpWithEmail()` - Creates account and sends verification email
+  - `isEmailVerified()` - Checks if current user's email is verified
+  - `resendVerificationEmail()` - Resends verification email
 - **options.tsx** - Auth UI with three modes: signin, signup, reset
+  - Shows success message after signup with verification instructions
+  - Shows amber verification notice when email not verified
 - **App.tsx** - Shows loading → unauthenticated UI → main UI based on auth state
+  - Tracks `emailVerified` state from auth listener
+  - Shows amber verification banner with resend button when not verified
 - **Auth state** - Both App and Options subscribe to `onAuthChange` listener
 - **Auth tokens** - Auto-refresh by Firebase, sessions persist indefinitely
 - **User data** - Isolated under `/users/{userId}` in Firestore
+- **Email verification** - Required for Firestore access, enforced by security rules
 
 ### Context Updates
 Load ALL scopes when context changes to populate badge counts correctly - not just the current tab
@@ -136,6 +148,10 @@ npm run test:run             # CI mode
 npm run test:coverage        # Coverage report
 npm run test:ui              # Interactive UI
 
+# Firebase
+npm run firebase:deploy      # Deploy security rules
+npm run firebase:deploy:all  # Deploy all Firebase config
+
 # Package
 npm run package              # Build + create release zips
 ```
@@ -172,6 +188,12 @@ npm run package              # Build + create release zips
 | Tests failing | Check mocks before imports, verify browser.* pattern |
 | Auth not persisting | Firebase auto-refreshes tokens, check for sign-out calls |
 | Extension broken in Firefox | Verify manifest-firefox.json, check addon ID |
+| Email not verified error | Check verification banner, click resend to get new email |
+| Rate limited error | Wait 1 second between saves to same context |
+| Max notes exceeded | Reduce to 100 notes per context (page/subdomain/domain/browser) |
+| Note too large error | Reduce note size to under 50KB |
+| Security rules outdated | Run `npm run firebase:deploy` to update rules |
+| Permission denied in Firestore | Verify email is verified, check security rules deployed |
 
 ## Things to Avoid
 
@@ -185,6 +207,9 @@ npm run package              # Build + create release zips
 - ❌ Global Firebase mocks in tests → ✅ Per-file mocks
 - ❌ Timeouts in tests → ✅ Promise-based patterns
 - ❌ Changing tab order → ✅ Keep Page → Subdomain → Domain → Browser
+- ❌ Skipping email verification checks → ✅ Always check `isEmailVerified()`
+- ❌ Frequent saves without throttling → ✅ Respect 1 sec rate limit
+- ❌ Modifying security rules without deployment → ✅ Run `npm run firebase:deploy`
 
 ## File Update Protocol
 

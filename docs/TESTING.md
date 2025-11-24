@@ -205,6 +205,90 @@ setMockStorage({
 });
 ```
 
+## Testing Email Verification and Security Features
+
+### Email Verification Tests
+
+When testing authentication with email verification:
+
+```typescript
+import { vi } from 'vitest';
+
+// Mock sendEmailVerification
+const mockSendEmailVerification = vi.fn();
+
+vi.mock('firebase/auth', () => ({
+  // ... other auth mocks
+  sendEmailVerification: mockSendEmailVerification,
+}));
+
+describe('Email Verification', () => {
+  it('should send verification email on signup', async () => {
+    await signUpWithEmail('test@example.com', 'password123');
+    expect(mockSendEmailVerification).toHaveBeenCalled();
+  });
+
+  it('should check if email is verified', () => {
+    mockAuth.currentUser = { emailVerified: true };
+    expect(isEmailVerified()).toBe(true);
+  });
+});
+```
+
+### Rate Limiting Tests
+
+Test rate limiting with time-based assertions:
+
+```typescript
+describe('Rate Limiting', () => {
+  it('should block rapid writes to same context', async () => {
+    const notes = [{ id: '1', text: 'Test', createdAt: 1, updatedAt: 1 }];
+
+    // First write should succeed
+    await syncService.saveNotes('browser', mockContext, notes);
+
+    // Second write within 1 second should fail
+    await expect(
+      syncService.saveNotes('browser', mockContext, notes)
+    ).rejects.toThrow(/please wait before saving again/i);
+  });
+});
+```
+
+### Data Validation Tests
+
+Test data validation for note limits:
+
+```typescript
+describe('Data Validation', () => {
+  it('should reject more than 100 notes', async () => {
+    const notes = Array.from({ length: 101 }, (_, i) => ({
+      id: `${i}`,
+      text: 'Note',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }));
+
+    await expect(
+      syncService.saveNotes('browser', mockContext, notes)
+    ).rejects.toThrow(/maximum 100 notes/i);
+  });
+
+  it('should reject notes exceeding 50KB', async () => {
+    const largeNote = {
+      id: '1',
+      text: 'x'.repeat(51000), // 51KB
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    await expect(
+      syncService.saveNotes('browser', mockContext, [largeNote])
+    ).rejects.toThrow(/note exceeds maximum size/i);
+  });
+});
+```
+
 ## Best Practices
 
 1. **Test user behavior, not implementation** - Focus on what the user sees and does

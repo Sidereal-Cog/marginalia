@@ -14,7 +14,7 @@ A cross-browser extension for context-aware note-taking that organizes your note
 
 **Cross-Device Sync** - Firebase integration for real-time sync across all your devices with offline support.
 
-**Email/Password Authentication** - Secure multi-user support with sign up, sign in, and password reset functionality.
+**Email/Password Authentication** - Secure multi-user support with sign up, sign in, password reset, and email verification for enhanced security.
 
 **Side Panel/Sidebar Interface** - Clean, always-accessible panel with tabbed navigation for different note scopes.
 
@@ -112,7 +112,8 @@ npm run build:firefox
 2. You'll see a welcome screen with information about the extension
 3. Click the "Sign In or Create Account" button to open the options page
 4. Create a new account with your email and password, or sign in if you already have an account
-5. Return to the extension - you'll now be authenticated and ready to take notes
+5. Check your email for a verification link and verify your account
+6. Return to the extension - you'll now be authenticated and ready to take notes
 
 ### Daily Use
 
@@ -176,18 +177,26 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 1. Create Firebase project at console.firebase.google.com
 2. Enable Firestore Database (start in test mode)
 3. Enable Email/Password Authentication in Authentication > Sign-in method
-4. Add security rules:
+4. Install Firebase CLI: `npm install -g firebase-tools`
+5. Login to Firebase: `firebase login`
+6. Initialize Firestore: `firebase init firestore` (select your project)
+7. Deploy security rules: `npm run firebase:deploy`
+8. Add your config to `src/firebaseConfig.ts`
+
+### Security Rules
+
+The project includes comprehensive Firestore security rules in `firestore.rules` that enforce:
+- **Email verification required** - Users must verify their email to access notes
+- **Rate limiting** - Maximum 1 write per second per context to prevent abuse
+- **Data validation** - Maximum 100 notes per context, 50KB per note
+- **User isolation** - Users can only access their own data
+
+Deploy security rules before using the extension:
+```bash
+npm run firebase:deploy
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
-5. Add your config to `src/firebaseConfig.ts`
+
+The security rules protect your Firebase free tier limits (50K reads/day, 20K writes/day, 1GB storage).
 
 ## Project Structure
 

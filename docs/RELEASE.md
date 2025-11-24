@@ -38,6 +38,9 @@ git checkout development
 # Make sure everything is committed
 git status
 
+# Deploy Firebase security rules
+npm run firebase:deploy
+
 # Run full test suite
 npm test
 
@@ -316,12 +319,14 @@ git branch -d hotfix/v1.0.1
 
 Before creating a release, ensure:
 
+- [ ] Firebase security rules deployed (`npm run firebase:deploy`)
 - [ ] All tests pass (`npm test`)
 - [ ] Linting passes (`npm run lint`)
 - [ ] Build succeeds for both browsers (`npm run build`)
 - [ ] Extension loads and works in Chrome
 - [ ] Extension loads and works in Firefox
 - [ ] All features work identically in both browsers
+- [ ] Email verification flow works (signup, verification email sent)
 - [ ] Version numbers updated in manifest-chrome.json, manifest-firefox.json, and package.json
 - [ ] CHANGELOG.md updated with all changes
 - [ ] All changes committed to development branch
