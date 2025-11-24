@@ -21,15 +21,14 @@ service cloud.firestore {
       return data.keys().hasAll(['notes', 'updatedAt'])
         && data.notes is list
         && data.notes.size() <= 100 // Max 100 notes per context
-        && data.updatedAt is number;
+        && data.updatedAt is timestamp;
     }
 
     // Rate limiting helper - checks if last write was at least 1 second ago
     function isNotSpamming() {
-      let existingData = resource.data;
-      // If document doesn't exist yet, allow creation
-      return !existingData.keys().hasAny(['updatedAt'])
-        || request.time > existingData.updatedAt + duration.value(1, 's');
+      // If document doesn't exist yet (first write), allow creation
+      return resource == null
+        || request.time > resource.data.updatedAt + duration.value(1, 's');
     }
 
     // User data rules

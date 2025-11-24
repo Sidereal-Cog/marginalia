@@ -4,8 +4,11 @@ import { initializeSync, getCurrentTabContext, loadNotes } from './sidebarLogic'
 import { onAuthChange } from './authService';
 
 // Initialize Firebase sync when user is authenticated
-onAuthChange((user) => {
+onAuthChange(async (user) => {
   if (user) {
+    // Force refresh user object to get latest email verification status
+    await user.reload();
+
     console.log('User authenticated:', user.uid);
     initializeSync().then(() => {
       console.log('Firebase sync initialized');

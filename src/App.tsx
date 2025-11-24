@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut, Mail, RefreshCw } from 'lucide-react';
 import type { UrlContext, NoteScope, Note } from './types';
 import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
-import { onAuthChange, signOut, resendVerificationEmail, getAuthErrorMessage } from './authService';
+import { onAuthChange, signOut, resendVerificationEmail, refreshUserToken, getAuthErrorMessage } from './authService';
 
 interface TabConfig {
   label: string;
@@ -34,6 +34,7 @@ export default function App() {
 
   // Email verification state
   const [resendingVerification, setResendingVerification] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
 
   // Tabs in reverse order: Page first, Browser last
@@ -51,7 +52,12 @@ export default function App() {
 
   // Listen to auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        // Force refresh user object to get latest email verification status
+        await user.reload();
+      }
+
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
       setEmailVerified(user?.emailVerified || false);
@@ -296,6 +302,28 @@ export default function App() {
     }
   };
 
+  const handleCheckVerification = async () => {
+    setCheckingVerification(true);
+    setVerificationMessage(null);
+
+    try {
+      const isVerified = await refreshUserToken();
+      if (isVerified) {
+        setEmailVerified(true);
+        setVerificationMessage('✓ Email verified! You can now sync notes.');
+        setTimeout(() => setVerificationMessage(null), 3000);
+      } else {
+        setVerificationMessage('Email not verified yet. Please check your inbox and click the verification link.');
+        setTimeout(() => setVerificationMessage(null), 5000);
+      }
+    } catch (error: any) {
+      setVerificationMessage(getAuthErrorMessage(error));
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } finally {
+      setCheckingVerification(false);
+    }
+  };
+
   // Loading state
   if (isAuthLoading) {
     return (
@@ -402,14 +430,26 @@ export default function App() {
                 </p>
               )}
             </div>
-            <button
-              onClick={handleResendVerification}
-              disabled={resendingVerification}
-              className="flex items-center gap-1 text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              <RefreshCw className={`w-3 h-3 ${resendingVerification ? 'animate-spin' : ''}`} />
-              Resend
-            </button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="flex items-center gap-1 text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Resend verification email"
+              >
+                <RefreshCw className={`w-3 h-3 ${resendingVerification ? 'animate-spin' : ''}`} />
+                Resend
+              </button>
+              <button
+                onClick={handleCheckVerification}
+                disabled={checkingVerification}
+                className="flex items-center gap-1 text-xs bg-stellar-blue text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Check if email is verified"
+              >
+                <RefreshCw className={`w-3 h-3 ${checkingVerification ? 'animate-spin' : ''}`} />
+                Check Status
+              </button>
+            </div>
           </div>
         </div>
       )}

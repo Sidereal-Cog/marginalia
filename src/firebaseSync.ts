@@ -1,9 +1,10 @@
 import { db } from './firebaseConfig';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
+import {
+  doc,
+  setDoc,
+  getDoc,
   onSnapshot,
+  serverTimestamp,
   Unsubscribe
 } from 'firebase/firestore';
 import { Note, UrlContext, NoteScope } from './types';
@@ -69,7 +70,7 @@ export class FirebaseSync {
         createdAt: note.createdAt,
         updatedAt: note.updatedAt
       })),
-      updatedAt: now
+      updatedAt: serverTimestamp()
     });
 
     // Update last write time
@@ -135,7 +136,7 @@ export class FirebaseSync {
       const contextRef = doc(db, `users/${this.userId}/notes/${contextKey}`);
       await setDoc(contextRef, {
         notes: notes,
-        updatedAt: Date.now()
+        updatedAt: serverTimestamp()
       });
     }
     

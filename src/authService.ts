@@ -30,6 +30,11 @@ export const signUpWithEmail = async (email: string, password: string): Promise<
 export const signInWithEmail = async (email: string, password: string): Promise<string> => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
+
+    // Force refresh user object and JWT token to get latest email verification status
+    await result.user.reload();
+    await result.user.getIdToken(true);
+
     return result.user.uid;
   } catch (error) {
     console.error('Sign in failed:', error);
@@ -99,6 +104,26 @@ export const resendVerificationEmail = async (): Promise<void> => {
     await sendEmailVerification(user);
   } catch (error) {
     console.error('Failed to send verification email:', error);
+    throw error;
+  }
+};
+
+// Force refresh user object and JWT token to get latest email verification status
+export const refreshUserToken = async (): Promise<boolean> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No user is currently signed in');
+  }
+
+  try {
+    // Reload user object from Firebase Auth backend
+    await user.reload();
+    // Force new JWT token with fresh claims
+    await user.getIdToken(true);
+    // Return updated email verification status
+    return auth.currentUser?.emailVerified || false;
+  } catch (error) {
+    console.error('Failed to refresh user token:', error);
     throw error;
   }
 };

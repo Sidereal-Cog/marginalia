@@ -72,20 +72,30 @@ useEffect(() => {
 - **Rate limiting**: Client-side throttling prevents writes faster than 1 req/sec per context
 - **Data validation**: Max 100 notes per context, max 50KB per note (enforced client and server-side)
 - **Security rules deployment**: Run `npm run firebase:deploy` to deploy firestore.rules
+- **Timestamps**: Always use `serverTimestamp()` for document `updatedAt` field (Firestore timestamp, not number)
+- **Timestamp validation**: Security rules check `updatedAt is timestamp` for all writes
 
 ### Authentication Flow
 - **authService.ts** - All Firebase auth operations (sign up, sign in, password reset, sign out)
   - `signUpWithEmail()` - Creates account and sends verification email
+  - `signInWithEmail()` - Signs in and forces JWT token refresh to get latest email verification status
   - `isEmailVerified()` - Checks if current user's email is verified
   - `resendVerificationEmail()` - Resends verification email
+  - `refreshUserToken()` - Forces refresh of user object and JWT token, returns updated verification status
 - **options.tsx** - Auth UI with three modes: signin, signup, reset
   - Shows success message after signup with verification instructions
   - Shows amber verification notice when email not verified
 - **App.tsx** - Shows loading → unauthenticated UI → main UI based on auth state
   - Tracks `emailVerified` state from auth listener
-  - Shows amber verification banner with resend button when not verified
+  - Auth listener calls `user.reload()` to get fresh verification status
+  - Shows amber verification banner with "Resend" and "Check Status" buttons when not verified
+  - "Check Status" button forces token refresh and updates UI immediately
+- **background.ts** - Service worker auth listener
+  - Calls `user.reload()` on auth state changes to refresh email verification status
 - **Auth state** - Both App and Options subscribe to `onAuthChange` listener
-- **Auth tokens** - Auto-refresh by Firebase, sessions persist indefinitely
+- **Auth tokens** - JWT tokens refreshed on sign-in and when "Check Status" clicked
+- **JWT token claims** - Include `email_verified` claim checked by Firestore security rules
+- **Token refresh timing** - Sign-in, auth state changes, and manual refresh via "Check Status" button
 - **User data** - Isolated under `/users/{userId}` in Firestore
 - **Email verification** - Required for Firestore access, enforced by security rules
 
@@ -184,7 +194,16 @@ npm run package              # Build + create release zips
 7. Test sync across devices
 8. Run test suite
 9. Test auth flow (sign up, sign in, sign out, password reset, badge clears on sign-out)
-10. Test in both Chrome and Firefox
+10. Test email verification flow:
+    - Sign up with new account
+    - Verify email in separate tab
+    - Click "Check Status" button
+    - Verify banner disappears and notes work
+11. Test Firestore timestamp handling:
+    - Create new note
+    - Check Firestore Console that `updatedAt` is a timestamp (not number)
+    - Verify rate limiting works correctly
+12. Test in both Chrome and Firefox
 
 ## Design System
 
@@ -216,12 +235,15 @@ All design follows **BRAND_GUIDELINES.md** - Sidereal Cog brand identity.
 | Tests failing | Check mocks before imports, verify browser.* pattern |
 | Auth not persisting | Firebase auto-refreshes tokens, check for sign-out calls |
 | Extension broken in Firefox | Verify manifest-firefox.json, check addon ID |
-| Email not verified error | Check verification banner, click resend to get new email |
+| Email not verified error | Check verification banner, click "Resend" or "Check Status" button |
 | Rate limited error | Wait 1 second between saves to same context |
 | Max notes exceeded | Reduce to 100 notes per context (page/subdomain/domain/browser) |
 | Note too large error | Reduce note size to under 50KB |
 | Security rules outdated | Run `npm run firebase:deploy` to update rules |
-| Permission denied in Firestore | Verify email is verified, check security rules deployed |
+| Permission denied in Firestore | (1) Verify email is verified - click "Check Status" button to refresh token; (2) Check security rules deployed; (3) If legacy data exists, delete Firestore documents and start fresh |
+| Permission errors after email verified | JWT token needs refresh - click "Check Status" button or sign out/in |
+| Timestamp type errors in rules | Ensure all documents use `serverTimestamp()` not `Date.now()` - delete legacy documents if needed |
+| Rate limiting fails on updates | Legacy documents may have number timestamps instead of Firestore timestamps - delete and recreate |
 
 ## Things to Avoid
 
