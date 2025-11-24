@@ -31,11 +31,13 @@ vi.mock('../../src/firebaseSync', () => ({
 vi.mock('../../src/authService', () => ({
   onAuthChange: vi.fn((callback) => {
     // Simulate authenticated user
-    callback({ uid: 'test-user-id', email: 'test@example.com' });
+    callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: true });
     return vi.fn(); // Return unsubscribe function
   }),
   getCurrentUserId: vi.fn(() => 'test-user-id'),
-  signOut: vi.fn().mockResolvedValue(undefined)
+  signOut: vi.fn().mockResolvedValue(undefined),
+  resendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  getAuthErrorMessage: vi.fn((error) => error?.message || 'An error occurred')
 }));
 
 // Helper to flush all promises
@@ -438,9 +440,170 @@ describe( 'App', () => {
       });
     });
   });
-  
-  
-  
+
+  describe('Email Verification Banner', () => {
+    beforeEach(() => {
+      clearMockStorage();
+      vi.clearAllMocks();
+    });
+
+    it('should show banner when authenticated but not verified', async () => {
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+
+      render(<App />);
+      await flushPromises();
+
+      expect(screen.getByText(/verify your email/i)).toBeInTheDocument();
+    });
+
+    it('should hide banner when email is verified', async () => {
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: true });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+
+      render(<App />);
+      await flushPromises();
+
+      expect(screen.queryByText(/verify your email/i)).not.toBeInTheDocument();
+    });
+
+    it('should hide banner when not authenticated', async () => {
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback(null);
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+
+      render(<App />);
+      await flushPromises();
+
+      expect(screen.queryByText(/verify your email/i)).not.toBeInTheDocument();
+    });
+
+    it('should call resendVerificationEmail when resend button clicked', async () => {
+      const user = userEvent.setup();
+      const mockResendVerificationEmail = vi.fn().mockResolvedValue(undefined);
+
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+      vi.mocked(authService.resendVerificationEmail).mockImplementation(mockResendVerificationEmail);
+
+      render(<App />);
+      await flushPromises();
+
+      const resendButton = screen.getByRole('button', { name: /resend/i });
+      await user.click(resendButton);
+
+      expect(mockResendVerificationEmail).toHaveBeenCalled();
+    });
+
+    it('should show success message after resending verification', async () => {
+      const user = userEvent.setup();
+      const mockResendVerificationEmail = vi.fn().mockResolvedValue(undefined);
+
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+      vi.mocked(authService.resendVerificationEmail).mockImplementation(mockResendVerificationEmail);
+
+      render(<App />);
+      await flushPromises();
+
+      const resendButton = screen.getByRole('button', { name: /resend/i });
+      await user.click(resendButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/verification email sent/i)).toBeInTheDocument();
+      });
+    });
+
+    it('should show error message if resend fails', async () => {
+      const user = userEvent.setup();
+      const mockResendVerificationEmail = vi.fn().mockRejectedValue({
+        code: 'auth/too-many-requests',
+        message: 'Too many requests'
+      });
+
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+      vi.mocked(authService.resendVerificationEmail).mockImplementation(mockResendVerificationEmail);
+      vi.mocked(authService.getAuthErrorMessage).mockReturnValue('Too many failed attempts. Please try again later.');
+
+      render(<App />);
+      await flushPromises();
+
+      const resendButton = screen.getByRole('button', { name: /resend/i });
+      await user.click(resendButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/too many failed attempts/i)).toBeInTheDocument();
+      });
+    });
+
+    it('should disable resend button while sending', async () => {
+      const user = userEvent.setup();
+      let resolveResend: () => void;
+      const mockResendVerificationEmail = vi.fn(() => {
+        return new Promise<void>((resolve) => {
+          resolveResend = resolve;
+        });
+      });
+
+      const mockOnAuthChange = vi.fn((callback) => {
+        callback({ uid: 'test-user-id', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation(mockOnAuthChange);
+      vi.mocked(authService.resendVerificationEmail).mockImplementation(mockResendVerificationEmail);
+
+      render(<App />);
+      await flushPromises();
+
+      const resendButton = screen.getByRole('button', { name: /resend/i });
+      await user.click(resendButton);
+
+      await waitFor(() => {
+        expect(resendButton).toBeDisabled();
+      });
+
+      act(() => {
+        resolveResend!();
+      });
+
+      await waitFor(() => {
+        expect(resendButton).not.toBeDisabled();
+      });
+    });
+  });
+
   describe('App - Main Functionality', () => {
     beforeEach(() => {
       clearMockStorage();

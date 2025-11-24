@@ -8,6 +8,7 @@ type AuthMode = 'signin' | 'signup' | 'reset';
 export function Options() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth form state
@@ -23,6 +24,7 @@ export function Options() {
     const unsubscribe = onAuthChange((user) => {
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
+      setEmailVerified(user?.emailVerified || false);
       setIsLoading(false);
     });
 
@@ -62,6 +64,7 @@ export function Options() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -74,10 +77,11 @@ export function Options() {
     }
 
     setFormLoading(true);
-    
+
     try {
       const { signUpWithEmail } = await import('./authService');
       await signUpWithEmail(email, password);
+      setSuccessMessage('Account created! Check your email to verify your account.');
       // Auth state will update automatically via onAuthChange
     } catch (err: any) {
       const { getAuthErrorMessage } = await import('./authService');
@@ -146,6 +150,25 @@ export function Options() {
                   </div>
                   <p className="text-sm text-green-700 mt-2" data-testid="user-email">{userEmail}</p>
                 </div>
+                {!emailVerified && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4" data-testid="verification-notice">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800">Email Verification Required</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          We sent a verification email to <strong>{userEmail}</strong>.
+                          Click the link in the email to enable sync across devices.
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2">
+                          Check your spam folder if you don't see it. You can resend the verification email from the extension.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={handleSignOut}
                   aria-label="Sign out"

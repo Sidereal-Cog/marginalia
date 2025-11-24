@@ -1,9 +1,10 @@
 import { auth } from './firebaseConfig';
-import { 
+import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  onAuthStateChanged, 
+  sendEmailVerification,
+  onAuthStateChanged,
   User,
   signOut as firebaseSignOut
 } from 'firebase/auth';
@@ -14,6 +15,10 @@ import {
 export const signUpWithEmail = async (email: string, password: string): Promise<string> => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Send email verification immediately after signup
+    await sendEmailVerification(result.user);
+
     return result.user.uid;
   } catch (error) {
     console.error('Sign up failed:', error);
@@ -74,6 +79,30 @@ export const getUserEmail = (): string | null => {
   return auth.currentUser?.email || null;
 };
 
+// Check if user's email is verified
+export const isEmailVerified = (): boolean => {
+  return auth.currentUser?.emailVerified || false;
+};
+
+// Resend verification email
+export const resendVerificationEmail = async (): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No user is currently signed in');
+  }
+
+  if (user.emailVerified) {
+    throw new Error('Email is already verified');
+  }
+
+  try {
+    await sendEmailVerification(user);
+  } catch (error) {
+    console.error('Failed to send verification email:', error);
+    throw error;
+  }
+};
+
 // Listen to auth state changes
 export const onAuthChange = (callback: (user: User | null) => void): (() => void) => {
   return onAuthStateChanged(auth, callback);
@@ -100,6 +129,8 @@ export const getAuthErrorMessage = (error: any): string => {
       return 'Network error. Please check your connection.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
+    case 'auth/operation-not-allowed':
+      return 'This operation is not allowed. Please contact support.';
     default:
       return error?.message || 'An error occurred. Please try again.';
   }

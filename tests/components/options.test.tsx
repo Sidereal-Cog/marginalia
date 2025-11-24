@@ -343,6 +343,37 @@ describe('Options', () => {
       const errorMessage = await screen.findByTestId('error-message');
       expect(errorMessage).toHaveTextContent(/already registered/i);
     });
+
+    it('should show success message after account creation', async () => {
+      const user = userEvent.setup();
+      mockSignUpWithEmail.mockResolvedValue('new-user-123');
+
+      render(<Options />);
+      await flushPromises();
+
+      // Switch to sign up mode
+      const signUpModeButton = screen.getByTestId('signup-mode-button');
+      await act(async () => {
+        await user.click(signUpModeButton);
+      });
+
+      const emailInput = screen.getByTestId('email-input');
+      const passwordInput = screen.getByTestId('password-input');
+      const confirmPasswordInput = screen.getByTestId('confirm-password-input');
+      const createAccountButton = screen.getByTestId('signup-submit-button');
+
+      await act(async () => {
+        await user.type(emailInput, 'newuser@example.com');
+        await user.type(passwordInput, 'password123');
+        await user.type(confirmPasswordInput, 'password123');
+        await user.click(createAccountButton);
+      });
+
+      await flushPromises();
+
+      const successMessage = await screen.findByTestId('success-message');
+      expect(successMessage).toHaveTextContent(/account created.*check your email/i);
+    });
   });
 
   describe('Password Reset form', () => {
@@ -497,6 +528,33 @@ describe('Options', () => {
       await flushPromises();
 
       expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it('should show verification notice when email not verified', async () => {
+      mockOnAuthChange.mockImplementation((callback) => {
+        callback({ uid: 'user-123', email: 'test@example.com', emailVerified: false });
+        return vi.fn();
+      });
+
+      render(<Options />);
+      await flushPromises();
+
+      const verificationNotice = screen.getByTestId('verification-notice');
+      expect(verificationNotice).toBeInTheDocument();
+      expect(verificationNotice).toHaveTextContent(/email verification required/i);
+      expect(verificationNotice).toHaveTextContent('test@example.com');
+    });
+
+    it('should hide verification notice when email is verified', async () => {
+      mockOnAuthChange.mockImplementation((callback) => {
+        callback({ uid: 'user-123', email: 'test@example.com', emailVerified: true });
+        return vi.fn();
+      });
+
+      render(<Options />);
+      await flushPromises();
+
+      expect(screen.queryByTestId('verification-notice')).not.toBeInTheDocument();
     });
   });
 

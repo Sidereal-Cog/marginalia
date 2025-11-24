@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut } from 'lucide-react';
+import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut, Mail, RefreshCw } from 'lucide-react';
 import type { UrlContext, NoteScope, Note } from './types';
 import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
-import { onAuthChange, signOut } from './authService';
+import { onAuthChange, signOut, resendVerificationEmail, getAuthErrorMessage } from './authService';
 
 interface TabConfig {
   label: string;
@@ -15,6 +15,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   // App state
   const [tabValue, setTabValue] = useState<number>(0);
@@ -30,6 +31,10 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState<string>('');
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Email verification state
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
 
   // Tabs in reverse order: Page first, Browser last
   // Filter out subdomain tab if there's no subdomain (domain === subdomain)
@@ -49,6 +54,7 @@ export default function App() {
     const unsubscribe = onAuthChange((user) => {
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
+      setEmailVerified(user?.emailVerified || false);
       setIsAuthLoading(false);
     });
 
@@ -266,11 +272,27 @@ export default function App() {
     if (!confirm('Are you sure you want to sign out? You\'ll need to sign in again.')) {
       return;
     }
-    
+
     try {
       await signOut();
     } catch (error) {
       console.error('Sign out failed:', error);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    setVerificationMessage(null);
+
+    try {
+      await resendVerificationEmail();
+      setVerificationMessage('Verification email sent! Check your inbox.');
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } catch (error: any) {
+      setVerificationMessage(getAuthErrorMessage(error));
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -364,7 +386,34 @@ export default function App() {
         </div>
         <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
       </div>
-      
+
+      {/* Email Verification Banner */}
+      {!emailVerified && (
+        <div className="bg-amber-50 border-b border-amber-200 p-3 flex-shrink-0">
+          <div className="flex items-start gap-2">
+            <Mail className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-amber-800">
+                <strong>Verify your email</strong> to enable sync across devices.
+              </p>
+              {verificationMessage && (
+                <p className="text-xs text-amber-700 mt-1">
+                  {verificationMessage}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleResendVerification}
+              disabled={resendingVerification}
+              className="flex items-center gap-1 text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              <RefreshCw className={`w-3 h-3 ${resendingVerification ? 'animate-spin' : ''}`} />
+              Resend
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex bg-white border-b border-gray-200 flex-shrink-0" role="tablist">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;

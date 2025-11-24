@@ -20,7 +20,9 @@
     "test:coverage": "vitest --coverage",
     "test:json": "vitest run --reporter=json --outputFile=test-results/test-results.json",
     "test:save": "vitest run --reporter=default --reporter=json --outputFile=test-results/latest.json",
-    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=test-results/junit.xml"
+    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=test-results/junit.xml",
+    "firebase:deploy": "firebase deploy --only firestore:rules",
+    "firebase:deploy:all": "firebase deploy"
   },
   "dependencies": {
     "firebase": "^12.4.0",

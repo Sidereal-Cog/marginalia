@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidNotesDocument() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['notes', 'updatedAt'])
+        && data.notes is list
+        && data.notes.size() <= 100 // Max 100 notes per context
+        && data.updatedAt is number;
+    }
+
+    // Rate limiting helper - checks if last write was at least 1 second ago
+    function isNotSpamming() {
+      let existingData = resource.data;
+      // If document doesn't exist yet, allow creation
+      return !existingData.keys().hasAny(['updatedAt'])
+        || request.time > existingData.updatedAt + duration.value(1, 's');
+    }
+
+    // User data rules
+    match /users/{userId} {
+      // Users can only read their own data
+      allow read: if isAuthenticated()
+        && isEmailVerified()
+        && isOwner(userId);
+
+      // Notes subcollection
+      match /notes/{noteContext} {
+        // Read: must be authenticated, verified, and owner
+        allow read: if isAuthenticated()
+          && isEmailVerified()
+          && isOwner(userId);
+
+        // Write: must be authenticated, verified, owner, valid data structure, and not spamming
+        allow create, update: if isAuthenticated()
+          && isEmailVerified()
+          && isOwner(userId)
+          && isValidNotesDocument()
+          && isNotSpamming();
+
+        // Delete: must be authenticated, verified, and owner
+        allow delete: if isAuthenticated()
+          && isEmailVerified()
+          && isOwner(userId);
+      }
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

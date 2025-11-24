@@ -195,6 +195,36 @@ When making multiple changes:
 4. Update related files together (types + logic + UI + tests)
 5. Test both browsers
 
+## Decision-Making and Options
+
+When architectural or implementation choices arise:
+- Present all viable options with trade-offs (security, performance, UX, user impact)
+- **Ask which approach to take before implementing**
+- Wait for explicit confirmation
+- Don't assume "best practice" equals "what Brian wants"
+
+For migration/security features especially:
+- Consider user base size when recommending approaches
+- Always ask about user impact tolerance before choosing strategy
+- Present options ranked by different criteria (most secure, least disruptive, easiest to implement, etc.)
+
+## File Creation Guidelines
+
+**Only create new files when explicitly requested or required for implementation.**
+
+Do NOT create:
+- Documentation files that repeat chat conversations
+- Migration guides unless specifically asked
+- "Helpful" scripts or templates unprompted
+- README or guide files proactively
+
+When to create files:
+- User explicitly requests: "create a file...", "add a new component..."
+- Implementing features that require new code modules
+- User says: "can you save that to a file?"
+
+When in doubt: Keep it in chat, ask before creating.
+
 ## Documentation Updates
 
 When adding/changing features, update:
