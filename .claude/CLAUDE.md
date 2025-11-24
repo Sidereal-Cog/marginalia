@@ -18,7 +18,7 @@ Marginalia is a proprietary Chrome/Brave/Firefox extension for context-aware not
 - **Tailwind utilities only** - No custom CSS except dynamic height calculations
 - **Separation of concerns**:
   - `App.tsx` - UI components and state
-  - `background.ts` - Tab listeners and browser detection
+  - `background.ts` - Tab listeners, browser detection, and toolbar badge updates
   - `sidebarLogic.ts` - Browser API utilities
   - `firebaseSync.ts` - Firestore operations
   - `authService.ts` - Authentication logic
@@ -89,8 +89,26 @@ useEffect(() => {
 - **User data** - Isolated under `/users/{userId}` in Firestore
 - **Email verification** - Required for Firestore access, enforced by security rules
 
-### Context Updates
-Load ALL scopes when context changes to populate badge counts correctly - not just the current tab
+### Badge System
+Marginalia has two types of badges:
+
+1. **Sidebar UI Badges** (in App.tsx):
+   - Small circular indicators on each tab showing note counts
+   - Displays count for all scopes: page, subdomain, domain, and browser
+   - Updates when notes change or context changes
+   - Load ALL scopes when context changes to populate counts correctly
+
+2. **Toolbar Icon Badge** (in background.ts):
+   - Badge on browser extension icon showing contextual note count
+   - Only counts page + subdomain + domain notes (excludes browser-wide)
+   - Shows "99+" for counts over 99
+   - Clears when count is zero
+   - Color: Stellar Blue (#4a9eff) background, white text
+   - Updates automatically on:
+     - Tab activation (switching tabs)
+     - Tab updates (URL changes, page loads)
+     - User sign-in (after Firebase sync initialized)
+   - Clears on user sign-out
 
 ### Cleanup Pattern
 Always return cleanup from useEffects that add listeners:
@@ -159,19 +177,28 @@ npm run package              # Build + create release zips
 ### Testing Checklist
 1. Build and refresh extension
 2. Check service worker console (Chrome) or background console (Firefox)
-3. Test badge counts update correctly
-4. Test context switching between tabs
-5. Test offline mode (disconnect internet)
-6. Test sync across devices
-7. Run test suite
-8. Test auth flow (sign up, sign in, sign out, password reset)
-9. Test in both Chrome and Firefox
+3. Test toolbar badge updates correctly (contextual notes only)
+4. Test sidebar UI badges update correctly (all scopes)
+5. Test context switching between tabs (badge updates)
+6. Test offline mode (disconnect internet)
+7. Test sync across devices
+8. Run test suite
+9. Test auth flow (sign up, sign in, sign out, password reset, badge clears on sign-out)
+10. Test in both Chrome and Firefox
 
 ## Design System
 
-- **Colors**: Indigo (primary), purple (accent), gray scale
-- **Spacing**: p-3/p-4 for padding, gap-2/gap-3 for gaps
-- **Effects**: Elevated shadow on hovers
+All design follows **BRAND_GUIDELINES.md** - Sidereal Cog brand identity.
+
+- **Colors** (from BRAND_GUIDELINES.md):
+  - **Primary**: Deep Navy (#1a1f3a) - Headers, primary UI elements
+  - **Accent**: Stellar Blue (#4a9eff) - Links, highlights, interactive elements, toolbar badge
+  - **Secondary**: Silver (#c0c8d8) - Secondary text, borders, subtle accents
+  - **Background**: White (#ffffff) primary, Dark Void (#0a0e1a) for dark mode
+- **Spacing**: Multiples of 4px (xs: 4px, sm: 8px, md: 16px, lg: 24px, xl: 32px)
+- **Border Radius**: Small (6px), Medium (8px), Large (12px), Circular (50%)
+- **Shadows**: Subtle shadows using Deep Navy with opacity
+- **Typography**: System fonts (Inter, Space Grotesk, Outfit preferred)
 - **Responsive**: 280px-600px width range
 
 ## Common Issues
@@ -179,7 +206,8 @@ npm run package              # Build + create release zips
 | Problem | Solution |
 |---------|----------|
 | Sidebar doesn't update | Check onTabContextChange callback, add console logs |
-| Badges don't show | Load all scopes on context change, not just current tab |
+| Sidebar badges don't show | Load all scopes on context change, not just current tab |
+| Toolbar badge doesn't update | Check background.ts updateBadge(), verify badge update on tab events |
 | Textarea height wrong | Use ref + useEffect pattern, not inline handlers |
 | TypeScript errors | Import types from types.ts, check Browser types available |
 | Firebase not working | Check service worker console, verify config |

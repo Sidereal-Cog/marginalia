@@ -71,7 +71,10 @@ vi.mock('webextension-polyfill', () => ({
     action: {
       onClicked: {
         addListener: vi.fn()
-      }
+      },
+      setBadgeText: vi.fn(() => Promise.resolve()),
+      setBadgeBackgroundColor: vi.fn(() => Promise.resolve()),
+      setBadgeTextColor: vi.fn(() => Promise.resolve())
     },
     sidePanel: {
       open: vi.fn(() => Promise.resolve()),
