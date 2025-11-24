@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut, Mail, RefreshCw } from 'lucide-react';
+import browser from 'webextension-polyfill';
 import type { UrlContext, NoteScope, Note } from './types';
 import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
 import { onAuthChange, signOut, resendVerificationEmail, refreshUserToken, getAuthErrorMessage } from './authService';
@@ -202,7 +203,14 @@ export default function App() {
 
     // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
-    
+
+    // Update toolbar badge
+    try {
+      await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
+    } catch (error) {
+      // Ignore if background script isn't available
+    }
+
     // Clear input and reset textarea height
     setNewNote('');
     const textarea = document.querySelector('textarea');
@@ -225,6 +233,14 @@ export default function App() {
 
     // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
+
+    // Update toolbar badge
+    try {
+      await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
+    } catch (error) {
+      // Ignore if background script isn't available
+    }
+
     setOpenMenuId(null);
   };
 
@@ -335,8 +351,7 @@ export default function App() {
 
   // Unauthenticated state
   if (!isAuthenticated) {
-    const handleOpenOptions = async () => {
-      const browser = (await import('webextension-polyfill')).default;
+    const handleOpenOptions = () => {
       browser.runtime.openOptionsPage();
     };
 

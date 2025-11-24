@@ -222,4 +222,7 @@ describe('background - Badge functionality', () => {
       expect(browser.action.setBadgeText).not.toHaveBeenCalled();
     });
   });
+
+  // Note: Message listener integration (UPDATE_BADGE, GET_CURRENT_TAB) is tested
+  // in App.test.tsx via integration tests that verify the full message flow
 });

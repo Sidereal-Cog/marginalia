@@ -118,7 +118,10 @@ Marginalia has two types of badges:
      - Tab activation (switching tabs)
      - Tab updates (URL changes, page loads)
      - User sign-in (after Firebase sync initialized)
+     - Note additions (App sends `UPDATE_BADGE` message to background)
+     - Note deletions (App sends `UPDATE_BADGE` message to background)
    - Clears on user sign-out
+   - Message passing: App.tsx sends `{ type: 'UPDATE_BADGE' }` to background.ts after note operations
 
 ### Cleanup Pattern
 Always return cleanup from useEffects that add listeners:

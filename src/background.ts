@@ -160,13 +160,16 @@ browser.tabs.onUpdated.addListener(async (
 browser.runtime.onMessage.addListener((
   message: unknown,
   _sender: browser.Runtime.MessageSender
-): Promise<{ tab: browser.Tabs.Tab }> | undefined => {
+): Promise<any> | undefined => {
   // Type guard for message
   if (typeof message === 'object' && message !== null && 'type' in message) {
     const msg = message as { type: string };
     if (msg.type === 'GET_CURRENT_TAB') {
       return browser.tabs.query({ active: true, currentWindow: true })
         .then(tabs => ({ tab: tabs[0] }));
+    }
+    if (msg.type === 'UPDATE_BADGE') {
+      return updateBadge().then(() => ({}));
     }
   }
   return undefined;

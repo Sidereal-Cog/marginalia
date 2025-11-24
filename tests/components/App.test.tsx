@@ -1086,4 +1086,133 @@ describe( 'App', () => {
       expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     });
   });
+
+  describe('Badge update messages', () => {
+    beforeEach(async () => {
+      clearMockStorage();
+      vi.clearAllMocks();
+
+      // Reset Firebase mock
+      if (mockFirebaseSyncInstance) {
+        Object.assign(mockFirebaseSyncInstance, createMockFirebaseSync());
+      }
+
+      // Set up authenticated user
+      const authService = await import('../../src/authService');
+      vi.mocked(authService.onAuthChange).mockImplementation((callback) => {
+        callback({
+          uid: 'test-user',
+          email: 'test@example.com',
+          emailVerified: true,
+          reload: vi.fn().mockResolvedValue(undefined)
+        } as any);
+        return vi.fn();
+      });
+
+      // Set up default tab context
+      vi.spyOn(chrome.tabs, 'query').mockImplementation(((queryInfo: any, callback?: any) => {
+        const tabs = [{
+          id: 1,
+          url: 'https://example.com/test',
+          active: true
+        }];
+        if (callback) {
+          callback(tabs);
+          return undefined;
+        }
+        return Promise.resolve(tabs);
+      }) as any);
+    });
+
+    it('should send UPDATE_BADGE message after adding note', async () => {
+      const user = userEvent.setup();
+      const mockSendMessage = vi.fn().mockResolvedValue({});
+
+      const browserModule = await import('webextension-polyfill');
+      vi.spyOn(browserModule.default.runtime, 'sendMessage').mockImplementation(mockSendMessage);
+
+      render(<App />);
+      await flushPromises();
+
+      const textarea = await screen.findByTestId('new-note-input');
+      const addButton = screen.getByTestId('add-note-button');
+
+      await user.type(textarea, 'Test note');
+      await user.click(addButton);
+      await flushPromises();
+
+      // Should have sent UPDATE_BADGE message
+      expect(mockSendMessage).toHaveBeenCalledWith({ type: 'UPDATE_BADGE' });
+    });
+
+    it('should send UPDATE_BADGE message after deleting note', async () => {
+      const user = userEvent.setup();
+      const mockSendMessage = vi.fn().mockResolvedValue({});
+
+      const browserModule = await import('webextension-polyfill');
+      vi.spyOn(browserModule.default.runtime, 'sendMessage').mockImplementation(mockSendMessage);
+
+      const mockNote = {
+        id: '1',
+        text: 'Note to delete',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      setMockStorage({
+        'notes:page:example.com/test': [mockNote]
+      });
+
+      mockFirebaseSyncInstance.loadNotes = vi.fn().mockImplementation((scope) => {
+        if (scope === 'page') {
+          return Promise.resolve([mockNote]);
+        }
+        return Promise.resolve([]);
+      });
+
+      render(<App />);
+      await flushPromises();
+
+      const noteElement = await screen.findByTestId('note-1');
+      const menuButton = within(noteElement).getByTestId('note-menu-button');
+      await user.click(menuButton);
+      await flushPromises();
+
+      const menu = await screen.findByTestId('note-menu');
+      const deleteButton = within(menu).getByTestId('delete-note-button');
+
+      vi.clearAllMocks(); // Clear previous sendMessage calls
+
+      await user.click(deleteButton);
+      await flushPromises();
+
+      // Should have sent UPDATE_BADGE message
+      expect(mockSendMessage).toHaveBeenCalledWith({ type: 'UPDATE_BADGE' });
+    });
+
+    it('should not fail if background script unavailable when updating badge', async () => {
+      const user = userEvent.setup();
+      const mockSendMessage = vi.fn().mockRejectedValue(new Error('Background script not available'));
+
+      const browserModule = await import('webextension-polyfill');
+      vi.spyOn(browserModule.default.runtime, 'sendMessage').mockImplementation(mockSendMessage);
+
+      render(<App />);
+      await flushPromises();
+
+      const textarea = await screen.findByTestId('new-note-input');
+      const addButton = screen.getByTestId('add-note-button');
+
+      await user.type(textarea, 'Test note');
+
+      // Should not throw even if sendMessage fails
+      await expect(async () => {
+        await user.click(addButton);
+        await flushPromises();
+      }).not.toThrow();
+
+      // Note should still be added
+      expect(await screen.findByText('Test note')).toBeInTheDocument();
+    });
+  });
 });
