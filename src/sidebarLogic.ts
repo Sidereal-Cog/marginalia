@@ -55,7 +55,7 @@ export function parseUrlContext(url: string): UrlContext | null {
       path: urlObj.pathname,
       fullPath: urlObj.pathname + urlObj.search + urlObj.hash
     };
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }

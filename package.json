@@ -1,7 +1,7 @@
 {
   "name": "marginalia",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.2.0",
   "author": "Sidereal Cog",
   "type": "module",
   "license": "MIT",
@@ -20,7 +20,9 @@
     "test:coverage": "vitest --coverage",
     "test:json": "vitest run --reporter=json --outputFile=test-results/test-results.json",
     "test:save": "vitest run --reporter=default --reporter=json --outputFile=test-results/latest.json",
-    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=test-results/junit.xml"
+    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=test-results/junit.xml",
+    "firebase:deploy": "firebase deploy --only firestore:rules",
+    "firebase:deploy:all": "firebase deploy"
   },
   "dependencies": {
     "firebase": "^12.4.0",

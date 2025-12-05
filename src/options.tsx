@@ -8,6 +8,7 @@ type AuthMode = 'signin' | 'signup' | 'reset';
 export function Options() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth form state
@@ -23,6 +24,7 @@ export function Options() {
     const unsubscribe = onAuthChange((user) => {
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
+      setEmailVerified(user?.emailVerified || false);
       setIsLoading(false);
     });
 
@@ -62,6 +64,7 @@ export function Options() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -74,10 +77,11 @@ export function Options() {
     }
 
     setFormLoading(true);
-    
+
     try {
       const { signUpWithEmail } = await import('./authService');
       await signUpWithEmail(email, password);
+      setSuccessMessage('Account created! Check your email to verify your account.');
       // Auth state will update automatically via onAuthChange
     } catch (err: any) {
       const { getAuthErrorMessage } = await import('./authService');
@@ -116,7 +120,7 @@ export function Options() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-testid="loading-state">
+      <div className="min-h-screen bg-white flex items-center justify-center" data-testid="loading-state">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
@@ -124,13 +128,13 @@ export function Options() {
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4" data-testid="authenticated-view">
+      <div className="min-h-screen bg-white py-8 px-4" data-testid="authenticated-view">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
+            <div className="bg-deep-navy text-white p-6">
               <h1 className="text-2xl font-semibold">Marginalia</h1>
-              <p className="text-sm text-indigo-100 mt-1">Scribbles in the sidebar</p>
+              <p className="text-sm text-silver mt-1">Scribbles in the sidebar</p>
             </div>
 
             {/* Content */}
@@ -146,6 +150,25 @@ export function Options() {
                   </div>
                   <p className="text-sm text-green-700 mt-2" data-testid="user-email">{userEmail}</p>
                 </div>
+                {!emailVerified && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4" data-testid="verification-notice">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800">Email Verification Required</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          We sent a verification email to <strong>{userEmail}</strong>.
+                          Click the link in the email to enable sync across devices.
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2">
+                          Check your spam folder if you don't see it. You can resend the verification email from the extension.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={handleSignOut}
                   aria-label="Sign out"
@@ -187,13 +210,13 @@ export function Options() {
 
   // Unauthenticated - show auth forms
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4" data-testid="unauthenticated-view">
+    <div className="min-h-screen bg-white py-8 px-4" data-testid="unauthenticated-view">
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 text-center">
+          <div className="bg-deep-navy text-white p-6 text-center">
             <h1 className="text-2xl font-semibold">Marginalia</h1>
-            <p className="text-sm text-indigo-100 mt-1">Scribbles in the sidebar</p>
+            <p className="text-sm text-silver mt-1">Scribbles in the sidebar</p>
           </div>
 
           <div className="p-6">
@@ -208,7 +231,7 @@ export function Options() {
                   data-testid="signin-mode-button"
                   className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
                     mode === 'signin'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-stellar-blue text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -222,7 +245,7 @@ export function Options() {
                   data-testid="signup-mode-button"
                   className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
                     mode === 'signup'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-stellar-blue text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -245,7 +268,7 @@ export function Options() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     data-testid="email-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -261,7 +284,7 @@ export function Options() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     data-testid="password-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="••••••••"
                   />
                 </div>
@@ -271,7 +294,7 @@ export function Options() {
                   disabled={formLoading}
                   aria-label={formLoading ? 'Signing in' : 'Sign in'}
                   data-testid="signin-submit-button"
-                  className="w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-stellar-blue text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {formLoading ? 'Signing in...' : 'Sign In'}
                 </button>
@@ -281,7 +304,7 @@ export function Options() {
                   onClick={() => handleModeSwitch('reset')}
                   aria-label="Forgot password"
                   data-testid="forgot-password-button"
-                  className="w-full text-sm text-indigo-600 hover:text-indigo-700 mt-2"
+                  className="w-full text-sm text-stellar-blue hover:text-blue-700 mt-2"
                 >
                   Forgot password?
                 </button>
@@ -302,7 +325,7 @@ export function Options() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     data-testid="email-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -318,7 +341,7 @@ export function Options() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     data-testid="password-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="At least 6 characters"
                   />
                 </div>
@@ -334,7 +357,7 @@ export function Options() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     data-testid="confirm-password-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="••••••••"
                   />
                 </div>
@@ -344,7 +367,7 @@ export function Options() {
                   disabled={formLoading}
                   aria-label={formLoading ? 'Creating account' : 'Create account'}
                   data-testid="signup-submit-button"
-                  className="w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-stellar-blue text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {formLoading ? 'Creating account...' : 'Create Account'}
                 </button>
@@ -365,7 +388,7 @@ export function Options() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     data-testid="email-input"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-transparent"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -375,7 +398,7 @@ export function Options() {
                   disabled={formLoading}
                   aria-label={formLoading ? 'Sending reset link' : 'Send reset link'}
                   data-testid="reset-submit-button"
-                  className="w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-stellar-blue text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {formLoading ? 'Sending...' : 'Send Reset Link'}
                 </button>
@@ -385,7 +408,7 @@ export function Options() {
                   onClick={() => handleModeSwitch('signin')}
                   aria-label="Back to sign in"
                   data-testid="back-to-signin-button"
-                  className="w-full text-sm text-indigo-600 hover:text-indigo-700"
+                  className="w-full text-sm text-stellar-blue hover:text-blue-700"
                 >
                   Back to sign in
                 </button>

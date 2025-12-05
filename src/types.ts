@@ -28,6 +28,13 @@ export interface TabChangeMessage {
 }
 
 /**
+ * Message type for badge update requests
+ */
+export interface BadgeUpdateMessage {
+  type: 'UPDATE_BADGE';
+}
+
+/**
  * Individual note structure
  */
 export interface Note {

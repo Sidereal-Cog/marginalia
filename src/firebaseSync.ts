@@ -1,16 +1,19 @@
 import { db } from './firebaseConfig';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
+import {
+  doc,
+  setDoc,
+  getDoc,
   onSnapshot,
+  serverTimestamp,
   Unsubscribe
 } from 'firebase/firestore';
 import { Note, UrlContext, NoteScope } from './types';
 
 export class FirebaseSync {
   private userId: string;
-  
+  private lastWriteTime: Map<string, number> = new Map();
+  private writeThrottleMs = 1000; // Minimum 1 second between writes to same context
+
   constructor(userId: string) {
     this.userId = userId;
   }
@@ -35,8 +38,31 @@ export class FirebaseSync {
 
   async saveNotes(scope: NoteScope, context: UrlContext, notes: Note[]): Promise<void> {
     const contextKey = this.buildFirestoreKey(scope, context);
+
+    // Client-side rate limiting
+    const lastWrite = this.lastWriteTime.get(contextKey) || 0;
+    const now = Date.now();
+    const timeSinceLastWrite = now - lastWrite;
+
+    if (timeSinceLastWrite < this.writeThrottleMs) {
+      console.warn(`Rate limited: ${this.writeThrottleMs - timeSinceLastWrite}ms until next write allowed`);
+      throw new Error('Please wait before saving again');
+    }
+
+    // Validate note count
+    if (notes.length > 100) {
+      throw new Error('Maximum 100 notes per context exceeded');
+    }
+
+    // Validate note sizes
+    for (const note of notes) {
+      if (note.text.length > 50000) {
+        throw new Error('Note exceeds maximum size of 50KB');
+      }
+    }
+
     const contextRef = doc(db, `users/${this.userId}/notes/${contextKey}`);
-    
+
     await setDoc(contextRef, {
       notes: notes.map(note => ({
         id: note.id,
@@ -44,8 +70,11 @@ export class FirebaseSync {
         createdAt: note.createdAt,
         updatedAt: note.updatedAt
       })),
-      updatedAt: Date.now()
+      updatedAt: serverTimestamp()
     });
+
+    // Update last write time
+    this.lastWriteTime.set(contextKey, now);
   }
 
   async loadNotes(scope: NoteScope, context: UrlContext): Promise<Note[]> {
@@ -107,7 +136,7 @@ export class FirebaseSync {
       const contextRef = doc(db, `users/${this.userId}/notes/${contextKey}`);
       await setDoc(contextRef, {
         notes: notes,
-        updatedAt: Date.now()
+        updatedAt: serverTimestamp()
       });
     }
     

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut } from 'lucide-react';
+import { Plus, Trash2, Globe, Network, Server, FileText, MoreVertical, Edit2, LogOut, Mail, RefreshCw } from 'lucide-react';
+import browser from 'webextension-polyfill';
 import type { UrlContext, NoteScope, Note } from './types';
 import { getCurrentTabContext, onTabContextChange, loadNotes, saveNotes, getSyncService } from './sidebarLogic';
-import { onAuthChange, signOut } from './authService';
+import { onAuthChange, signOut, resendVerificationEmail, refreshUserToken, getAuthErrorMessage } from './authService';
 
 interface TabConfig {
   label: string;
@@ -15,6 +16,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   // App state
   const [tabValue, setTabValue] = useState<number>(0);
@@ -31,6 +33,11 @@ export default function App() {
   const [editText, setEditText] = useState<string>('');
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Email verification state
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+
   // Tabs in reverse order: Page first, Browser last
   // Filter out subdomain tab if there's no subdomain (domain === subdomain)
   const allTabs: TabConfig[] = [
@@ -46,9 +53,15 @@ export default function App() {
 
   // Listen to auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        // Force refresh user object to get latest email verification status
+        await user.reload();
+      }
+
       setIsAuthenticated(!!user);
       setUserEmail(user?.email || null);
+      setEmailVerified(user?.emailVerified || false);
       setIsAuthLoading(false);
     });
 
@@ -57,35 +70,53 @@ export default function App() {
 
   // Update context when tab changes
   useEffect(() => {
+    let isMounted = true;
+
     const updateContext = async () => {
       const newContext = await getCurrentTabContext();
-      setContext(newContext);
+      if (isMounted) {
+        setContext(newContext);
+      }
     };
 
     updateContext();
     const unregister = onTabContextChange(updateContext);
-    return unregister;
+
+    return () => {
+      isMounted = false;
+      unregister();
+    };
   }, []);
 
   // Load notes when context or tab changes
   useEffect(() => {
+    let isMounted = true;
+
     const loadScopeNotes = async () => {
       if (!context || !isAuthenticated) return;
-      
+
       const currentScope = tabs[tabValue].scope;
       const loadedNotes = await loadNotes(currentScope, context);
-      
-      setNotes(prev => ({
-        ...prev,
-        [currentScope]: loadedNotes
-      }));
+
+      if (isMounted) {
+        setNotes(prev => ({
+          ...prev,
+          [currentScope]: loadedNotes
+        }));
+      }
     };
 
     loadScopeNotes();
-  }, [context, tabValue, isAuthenticated]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [context, tabValue, isAuthenticated, tabs]);
 
   // Load badge counts for all scopes when context changes
   useEffect(() => {
+    let isMounted = true;
+
     const loadAllScopeCounts = async () => {
       if (!context || !isAuthenticated) return;
 
@@ -97,10 +128,16 @@ export default function App() {
         allNotes[scope] = scopeNotes;
       }
 
-      setNotes(allNotes);
+      if (isMounted) {
+        setNotes(allNotes);
+      }
     };
 
     loadAllScopeCounts();
+
+    return () => {
+      isMounted = false;
+    };
   }, [context, isAuthenticated]);
 
   // Subscribe to real-time updates from Firebase
@@ -190,7 +227,14 @@ export default function App() {
 
     // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
-    
+
+    // Update toolbar badge
+    try {
+      await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
+    } catch (_error) {
+      // Ignore if background script isn't available
+    }
+
     // Clear input and reset textarea height
     setNewNote('');
     const textarea = document.querySelector('textarea');
@@ -213,6 +257,14 @@ export default function App() {
 
     // Save to Firebase and Chrome storage
     await saveNotes(currentScope, context, updatedNotes);
+
+    // Update toolbar badge
+    try {
+      await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
+    } catch (_error) {
+      // Ignore if background script isn't available
+    }
+
     setOpenMenuId(null);
   };
 
@@ -266,7 +318,7 @@ export default function App() {
     if (!confirm('Are you sure you want to sign out? You\'ll need to sign in again.')) {
       return;
     }
-    
+
     try {
       await signOut();
     } catch (error) {
@@ -274,10 +326,48 @@ export default function App() {
     }
   };
 
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    setVerificationMessage(null);
+
+    try {
+      await resendVerificationEmail();
+      setVerificationMessage('Verification email sent! Check your inbox.');
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } catch (error: any) {
+      setVerificationMessage(getAuthErrorMessage(error));
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    setCheckingVerification(true);
+    setVerificationMessage(null);
+
+    try {
+      const isVerified = await refreshUserToken();
+      if (isVerified) {
+        setEmailVerified(true);
+        setVerificationMessage('✓ Email verified! You can now sync notes.');
+        setTimeout(() => setVerificationMessage(null), 3000);
+      } else {
+        setVerificationMessage('Email not verified yet. Please check your inbox and click the verification link.');
+        setTimeout(() => setVerificationMessage(null), 5000);
+      }
+    } catch (error: any) {
+      setVerificationMessage(getAuthErrorMessage(error));
+      setTimeout(() => setVerificationMessage(null), 5000);
+    } finally {
+      setCheckingVerification(false);
+    }
+  };
+
   // Loading state
   if (isAuthLoading) {
     return (
-      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex items-center justify-center bg-white">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
@@ -285,17 +375,16 @@ export default function App() {
 
   // Unauthenticated state
   if (!isAuthenticated) {
-    const handleOpenOptions = async () => {
-      const browser = (await import('webextension-polyfill')).default;
+    const handleOpenOptions = () => {
       browser.runtime.openOptionsPage();
     };
 
     return (
-      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50">
+      <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-white">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
+        <div className="bg-deep-navy text-white p-4 shadow-lg flex-shrink-0">
           <h1 className="text-xl font-semibold">Marginalia</h1>
-          <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
+          <p className="text-xs text-silver">Scribbles in the sidebar</p>
         </div>
 
         {/* Content */}
@@ -303,7 +392,7 @@ export default function App() {
           <div className="text-center max-w-md">
             {/* Icon */}
             <div className="mb-6 flex justify-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-stellar-blue rounded-full flex items-center justify-center shadow-lg">
                 <FileText className="w-8 h-8 text-white" />
               </div>
             </div>
@@ -320,7 +409,7 @@ export default function App() {
             {/* CTA Button */}
             <button
               onClick={handleOpenOptions}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-stellar-blue text-white font-medium rounded-lg shadow-lg hover:shadow-xl hover:bg-blue-600 transition-all duration-200 transform hover:scale-105"
             >
               <LogOut className="w-4 h-4 transform rotate-180" />
               Sign In or Create Account
@@ -337,14 +426,14 @@ export default function App() {
   }
 
   return (
-    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-gray-50" data-testid="app-container">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 shadow-lg flex-shrink-0">
+    <div className="w-full min-w-[280px] max-w-[600px] h-screen flex flex-col bg-white" data-testid="app-container">
+      <div className="bg-deep-navy text-white p-4 shadow-lg flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-semibold">Marginalia</h1>
           <div className="flex items-center gap-2">
             {userEmail && (
-              <span 
-                className="text-xs text-indigo-100 truncate max-w-[150px]" 
+              <span
+                className="text-xs text-silver truncate max-w-[150px]"
                 title={userEmail}
                 data-testid="user-email"
               >
@@ -362,9 +451,48 @@ export default function App() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-indigo-100">Scribbles in the sidebar</p>
+        <p className="text-xs text-silver">Scribbles in the sidebar</p>
       </div>
-      
+
+      {/* Email Verification Banner */}
+      {!emailVerified && (
+        <div className="bg-amber-50 border-b border-amber-200 p-3 flex-shrink-0">
+          <div className="flex items-start gap-2">
+            <Mail className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-amber-800">
+                <strong>Verify your email</strong> to enable sync across devices.
+              </p>
+              {verificationMessage && (
+                <p className="text-xs text-amber-700 mt-1">
+                  {verificationMessage}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="flex items-center gap-1 text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Resend verification email"
+              >
+                <RefreshCw className={`w-3 h-3 ${resendingVerification ? 'animate-spin' : ''}`} />
+                Resend
+              </button>
+              <button
+                onClick={handleCheckVerification}
+                disabled={checkingVerification}
+                className="flex items-center gap-1 text-xs bg-stellar-blue text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Check if email is verified"
+              >
+                <RefreshCw className={`w-3 h-3 ${checkingVerification ? 'animate-spin' : ''}`} />
+                Check Status
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex bg-white border-b border-gray-200 flex-shrink-0" role="tablist">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
@@ -379,15 +507,15 @@ export default function App() {
               data-testid={`tab-${tab.scope}`}
               className={`flex-1 py-3 px-1 sm:px-2 text-xs sm:text-sm font-medium transition-colors flex flex-col items-center gap-1 relative ${
                 tabValue === idx
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                  ? 'text-stellar-blue border-b-2 border-stellar-blue bg-blue-50'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               <div className="relative">
                 <Icon size={18} />
                 {noteCount > 0 && (
-                  <span 
-                    className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                  <span
+                    className="absolute -top-1 -right-1 bg-stellar-blue text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
                     aria-label={`${noteCount} notes`}
                     data-testid={`badge-${tab.scope}`}
                   >
@@ -424,7 +552,7 @@ export default function App() {
               rows={1}
               aria-label="New note input"
               data-testid="new-note-input"
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue resize-none overflow-hidden"
               style={{
                 minHeight: '38px',
                 height: 'auto'
@@ -435,11 +563,11 @@ export default function App() {
                 target.style.height = target.scrollHeight + 'px';
               }}
             />
-            <button 
+            <button
               onClick={handleAddNote}
               aria-label="Add note"
               data-testid="add-note-button"
-              className="flex-shrink-0 p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-start"
+              className="flex-shrink-0 p-2 bg-stellar-blue text-white rounded-md hover:bg-blue-600 transition-colors self-start"
             >
               <Plus size={20} />
             </button>
@@ -467,7 +595,7 @@ export default function App() {
                         onChange={(e) => setEditText(e.target.value)}
                         aria-label="Edit note"
                         data-testid="edit-note-input"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue resize-none overflow-hidden"
                         rows={1}
                       />
                       <div className="flex gap-2">
@@ -475,7 +603,7 @@ export default function App() {
                           onClick={() => handleSaveEdit(note.id)}
                           aria-label="Save edit"
                           data-testid="save-edit-button"
-                          className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                          className="px-3 py-1 bg-stellar-blue text-white text-sm rounded hover:bg-blue-600"
                         >
                           Save
                         </button>

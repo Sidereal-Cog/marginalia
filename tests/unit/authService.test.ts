@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();
 const mockSendPasswordResetEmail = vi.fn();
+const mockSendEmailVerification = vi.fn();
 const mockSignOut = vi.fn();
 const mockOnAuthStateChanged = vi.fn();
 
@@ -16,14 +17,16 @@ const mockAuth = createMockAuth();
 
 // Mock Firebase auth module BEFORE imports
 vi.mock('firebase/auth', () => ({
-  createUserWithEmailAndPassword: (auth: any, email: string, password: string) => 
+  createUserWithEmailAndPassword: (auth: any, email: string, password: string) =>
     mockCreateUserWithEmailAndPassword(auth, email, password),
-  signInWithEmailAndPassword: (auth: any, email: string, password: string) => 
+  signInWithEmailAndPassword: (auth: any, email: string, password: string) =>
     mockSignInWithEmailAndPassword(auth, email, password),
-  sendPasswordResetEmail: (auth: any, email: string) => 
+  sendPasswordResetEmail: (auth: any, email: string) =>
     mockSendPasswordResetEmail(auth, email),
+  sendEmailVerification: (user: any) =>
+    mockSendEmailVerification(user),
   signOut: (auth: any) => mockSignOut(auth),
-  onAuthStateChanged: (auth: any, callback: any) => 
+  onAuthStateChanged: (auth: any, callback: any) =>
     mockOnAuthStateChanged(auth, callback)
 }));
 
@@ -52,6 +55,7 @@ describe('authService', () => {
       mockCreateUserWithEmailAndPassword.mockResolvedValue({
         user: mockUser
       });
+      mockSendEmailVerification.mockResolvedValue(undefined);
 
       const userId = await authServiceModule.signUpWithEmail(email, password);
 
@@ -61,6 +65,21 @@ describe('authService', () => {
         password
       );
       expect(userId).toBe('new-user-id');
+    });
+
+    it('should send verification email after creating user', async () => {
+      const email = 'test@example.com';
+      const password = 'password123';
+      const mockUser = { uid: 'new-user-id', email };
+
+      mockCreateUserWithEmailAndPassword.mockResolvedValue({
+        user: mockUser
+      });
+      mockSendEmailVerification.mockResolvedValue(undefined);
+
+      await authServiceModule.signUpWithEmail(email, password);
+
+      expect(mockSendEmailVerification).toHaveBeenCalledWith(mockUser);
     });
 
     it('should handle email already in use error', async () => {
@@ -95,7 +114,11 @@ describe('authService', () => {
     it('should sign in user and return user ID', async () => {
       const email = 'test@example.com';
       const password = 'password123';
-      const mockUser = { uid: 'existing-user-id' };
+      const mockUser = {
+        uid: 'existing-user-id',
+        reload: vi.fn().mockResolvedValue(undefined),
+        getIdToken: vi.fn().mockResolvedValue('token')
+      };
 
       mockSignInWithEmailAndPassword.mockResolvedValue({
         user: mockUser
@@ -341,6 +364,71 @@ describe('authService', () => {
     it('should return default message when no error info provided', () => {
       const message = authServiceModule.getAuthErrorMessage({});
       expect(message).toBe('An error occurred. Please try again.');
+    });
+  });
+
+  describe('Email Verification', () => {
+    describe('isEmailVerified', () => {
+      it('should return true when user email is verified', () => {
+        mockAuth.currentUser = { uid: 'user-123', emailVerified: true };
+
+        const result = authServiceModule.isEmailVerified();
+
+        expect(result).toBe(true);
+      });
+
+      it('should return false when user email is not verified', () => {
+        mockAuth.currentUser = { uid: 'user-123', emailVerified: false };
+
+        const result = authServiceModule.isEmailVerified();
+
+        expect(result).toBe(false);
+      });
+
+      it('should return false when no user is signed in', () => {
+        mockAuth.currentUser = null;
+
+        const result = authServiceModule.isEmailVerified();
+
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('resendVerificationEmail', () => {
+      it('should send verification email to current user', async () => {
+        const mockUser = { uid: 'user-123', email: 'test@example.com', emailVerified: false };
+        mockAuth.currentUser = mockUser;
+        mockSendEmailVerification.mockResolvedValue(undefined);
+
+        await authServiceModule.resendVerificationEmail();
+
+        expect(mockSendEmailVerification).toHaveBeenCalledWith(mockUser);
+      });
+
+      it('should throw error when no user is signed in', async () => {
+        mockAuth.currentUser = null;
+
+        await expect(authServiceModule.resendVerificationEmail()).rejects.toThrow(
+          'No user is currently signed in'
+        );
+      });
+
+      it('should throw error when email is already verified', async () => {
+        mockAuth.currentUser = { uid: 'user-123', email: 'test@example.com', emailVerified: true };
+
+        await expect(authServiceModule.resendVerificationEmail()).rejects.toThrow(
+          'Email is already verified'
+        );
+      });
+
+      it('should handle verification email send failure', async () => {
+        const mockUser = { uid: 'user-123', email: 'test@example.com', emailVerified: false };
+        mockAuth.currentUser = mockUser;
+        const error = new Error('Network error');
+        mockSendEmailVerification.mockRejectedValue(error);
+
+        await expect(authServiceModule.resendVerificationEmail()).rejects.toThrow('Network error');
+      });
     });
   });
 });

@@ -13,7 +13,8 @@ vi.mock('firebase/firestore', () => ({
   doc: (...args: any[]) => mockDoc(...args),
   setDoc: (...args: any[]) => mockSetDoc(...args),
   getDoc: (...args: any[]) => mockGetDoc(...args),
-  onSnapshot: (...args: any[]) => mockOnSnapshot(...args)
+  onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
+  serverTimestamp: vi.fn(() => ({ _type: 'serverTimestamp' }))
 }));
 
 // Mock firebaseConfig
@@ -80,7 +81,7 @@ describe('FirebaseSync', () => {
               text: 'Test note'
             })
           ]),
-          updatedAt: expect.any(Number)
+          updatedAt: expect.any(Object)
         })
       );
     });
@@ -92,7 +93,7 @@ describe('FirebaseSync', () => {
         mockDocRef,
         expect.objectContaining({
           notes: [],
-          updatedAt: expect.any(Number)
+          updatedAt: expect.any(Object)
         })
       );
     });
@@ -272,6 +273,97 @@ describe('FirebaseSync', () => {
       });
       
       expect(noteMigrationCalls.length).toBe(0);
+    });
+  });
+
+  describe('Rate Limiting', () => {
+    it('should allow write after sufficient delay', async () => {
+      const notes: Note[] = [{ id: '1', text: 'First', createdAt: 1000, updatedAt: 1000 }];
+
+      await syncService.saveNotes('browser', mockContext, notes);
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+      // Wait for throttle period
+      await new Promise(resolve => setTimeout(resolve, 1100));
+
+      await syncService.saveNotes('browser', mockContext, notes);
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+    });
+
+    it('should block write within throttle period', async () => {
+      const notes: Note[] = [{ id: '1', text: 'Test', createdAt: 1000, updatedAt: 1000 }];
+
+      await syncService.saveNotes('browser', mockContext, notes);
+
+      await expect(
+        syncService.saveNotes('browser', mockContext, notes)
+      ).rejects.toThrow(/please wait before saving again/i);
+    });
+
+    it('should have independent rate limiting per context', async () => {
+      const notes: Note[] = [{ id: '1', text: 'Test', createdAt: 1000, updatedAt: 1000 }];
+
+      await syncService.saveNotes('browser', mockContext, notes);
+      await syncService.saveNotes('domain', mockContext, notes);
+      await syncService.saveNotes('page', mockContext, notes);
+
+      expect(mockSetDoc).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Data Validation', () => {
+    it('should reject more than 100 notes', async () => {
+      const notes: Note[] = Array.from({ length: 101 }, (_, i) => ({
+        id: String(i),
+        text: `Note ${i}`,
+        createdAt: 1000,
+        updatedAt: 1000
+      }));
+
+      await expect(
+        syncService.saveNotes('browser', mockContext, notes)
+      ).rejects.toThrow(/maximum 100 notes/i);
+    });
+
+    it('should reject notes larger than 50KB', async () => {
+      const largeText = 'a'.repeat(50001);
+      const notes: Note[] = [{
+        id: '1',
+        text: largeText,
+        createdAt: 1000,
+        updatedAt: 1000
+      }];
+
+      await expect(
+        syncService.saveNotes('browser', mockContext, notes)
+      ).rejects.toThrow(/exceeds maximum size/i);
+    });
+
+    it('should allow exactly 100 notes', async () => {
+      const notes: Note[] = Array.from({ length: 100 }, (_, i) => ({
+        id: String(i),
+        text: `Note ${i}`,
+        createdAt: 1000,
+        updatedAt: 1000
+      }));
+
+      await syncService.saveNotes('browser', mockContext, notes);
+
+      expect(mockSetDoc).toHaveBeenCalled();
+    });
+
+    it('should allow note at 50KB limit', async () => {
+      const largeText = 'a'.repeat(50000);
+      const notes: Note[] = [{
+        id: '1',
+        text: largeText,
+        createdAt: 1000,
+        updatedAt: 1000
+      }];
+
+      await syncService.saveNotes('browser', mockContext, notes);
+
+      expect(mockSetDoc).toHaveBeenCalled();
     });
   });
 });

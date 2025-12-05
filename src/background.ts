@@ -1,21 +1,89 @@
 import browser from 'webextension-polyfill';
-import type { TabChangeMessage } from './types';
-import { initializeSync } from './sidebarLogic';
+import type { TabChangeMessage, NoteScope } from './types';
+import { initializeSync, getCurrentTabContext, loadNotes } from './sidebarLogic';
 import { onAuthChange } from './authService';
 
 // Initialize Firebase sync when user is authenticated
-onAuthChange((user) => {
+onAuthChange(async (user) => {
   if (user) {
+    // Force refresh user object to get latest email verification status
+    await user.reload();
+
     console.log('User authenticated:', user.uid);
     initializeSync().then(() => {
       console.log('Firebase sync initialized');
+      // Update badge after sync initialization
+      updateBadge().catch((error) => {
+        console.error('Failed to update badge:', error);
+      });
     }).catch((error) => {
       console.error('Failed to initialize Firebase sync:', error);
     });
   } else {
     console.log('User signed out');
+    // Clear badge on sign-out
+    clearBadge();
   }
 });
+
+/**
+ * Format badge text based on count
+ * Shows "99+" for counts over 99, empty string for 0
+ */
+export function formatBadgeText(count: number): string {
+  if (count === 0) {
+    return '';
+  }
+  if (count > 99) {
+    return '99+';
+  }
+  return count.toString();
+}
+
+/**
+ * Clear the extension icon badge
+ */
+export function clearBadge(): void {
+  browser.action.setBadgeText({ text: '' });
+}
+
+/**
+ * Update badge with count of contextual notes (page + subdomain + domain)
+ * Excludes browser-wide notes
+ */
+export async function updateBadge(): Promise<void> {
+  try {
+    // Get current tab context
+    const context = await getCurrentTabContext();
+
+    if (!context) {
+      clearBadge();
+      return;
+    }
+
+    // Load notes for contextual scopes only (exclude 'browser')
+    const contextualScopes: NoteScope[] = ['page', 'subdomain', 'domain'];
+    let totalCount = 0;
+
+    for (const scope of contextualScopes) {
+      const notes = await loadNotes(scope, context);
+      totalCount += notes.length;
+    }
+
+    // Set badge text
+    const badgeText = formatBadgeText(totalCount);
+    await browser.action.setBadgeText({ text: badgeText });
+
+    // Set badge colors (Stellar Blue background, white text) if showing count
+    if (badgeText) {
+      await browser.action.setBadgeBackgroundColor({ color: '#4a9eff' });
+      await browser.action.setBadgeTextColor({ color: '#ffffff' });
+    }
+  } catch (error) {
+    console.error('Error updating badge:', error);
+    // Don't clear badge on error - keep previous state
+  }
+}
 
 // Detect browser and sidebar API availability
 const isFirefox = typeof (browser as any).sidebarAction !== 'undefined';
@@ -46,17 +114,20 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
     type: 'TAB_CHANGED',
     tabId: activeInfo.tabId
   };
-  
+
   // Silently ignore if sidebar isn't open
   try {
     await browser.runtime.sendMessage(message);
-  } catch (error) {
+  } catch (_error) {
     // Expected when sidebar isn't open - ignore
   }
+
+  // Update badge for new tab
+  await updateBadge();
 });
 
 // Listen for tab updates (URL changes, page loads)
-browser.tabs.onUpdated.addListener((
+browser.tabs.onUpdated.addListener(async (
   tabId: number,
   changeInfo: browser.Tabs.OnUpdatedChangeInfoType,
   tab: browser.Tabs.Tab
@@ -68,12 +139,19 @@ browser.tabs.onUpdated.addListener((
       tabId: tabId,
       url: tab.url
     };
-    
+
     // Silently ignore if sidebar isn't open
     try {
       browser.runtime.sendMessage(message);
-    } catch (error) {
+    } catch (_error) {
       // Expected when sidebar isn't open - ignore
+    }
+
+    // Update badge when URL changes or page loads
+    // Only update if this is the active tab
+    const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && activeTab.id === tabId) {
+      await updateBadge();
     }
   }
 });
@@ -82,13 +160,16 @@ browser.tabs.onUpdated.addListener((
 browser.runtime.onMessage.addListener((
   message: unknown,
   _sender: browser.Runtime.MessageSender
-): Promise<{ tab: browser.Tabs.Tab }> | undefined => {
+): Promise<any> | undefined => {
   // Type guard for message
   if (typeof message === 'object' && message !== null && 'type' in message) {
     const msg = message as { type: string };
     if (msg.type === 'GET_CURRENT_TAB') {
       return browser.tabs.query({ active: true, currentWindow: true })
         .then(tabs => ({ tab: tabs[0] }));
+    }
+    if (msg.type === 'UPDATE_BADGE') {
+      return updateBadge().then(() => ({}));
     }
   }
   return undefined;
