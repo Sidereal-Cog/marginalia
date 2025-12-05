@@ -114,7 +114,11 @@ describe('authService', () => {
     it('should sign in user and return user ID', async () => {
       const email = 'test@example.com';
       const password = 'password123';
-      const mockUser = { uid: 'existing-user-id' };
+      const mockUser = {
+        uid: 'existing-user-id',
+        reload: vi.fn().mockResolvedValue(undefined),
+        getIdToken: vi.fn().mockResolvedValue('token')
+      };
 
       mockSignInWithEmailAndPassword.mockResolvedValue({
         user: mockUser

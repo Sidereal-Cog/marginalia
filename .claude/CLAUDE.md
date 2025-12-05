@@ -157,9 +157,12 @@ expect(element).toBeInTheDocument();
 
 ### Common Gotchas
 - Use `findBy` queries, not `getBy` + `waitFor`
-- Wrap React state changes in `act()`
+- Don't wrap `user.click()` in `act()` - it's handled internally
 - Use `vi.spyOn()` for browser module properties (read-only)
 - Restore auth mocks in `afterEach` for auth integration tests
+- Clear all state layers in `beforeEach` (storage, mocks, test state, instances)
+
+See [docs/TESTING.md](../docs/TESTING.md) for comprehensive testing patterns, anti-patterns, and detailed examples.
 
 ## Build & Test Workflow
 

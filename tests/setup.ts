@@ -1,6 +1,14 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
+// Configure React testing environment for React 19 + Vitest
+// Set IS_REACT_ACT_ENVIRONMENT on both globalThis and self (if different)
+// See: https://github.com/vitest-dev/vitest/issues/1146
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+if (typeof (globalThis as any).self !== 'undefined' && (globalThis as any).self !== globalThis) {
+  (globalThis as any).self.IS_REACT_ACT_ENVIRONMENT = true;
+}
+
 // Mock storage for tests
 const mockStorage: Record<string, any> = {};
 
@@ -42,12 +50,12 @@ vi.mock('webextension-polyfill', () => ({
     tabs: {
       query: vi.fn(() => Promise.resolve([{
         id: 1,
-        url: 'https://example.com/test',
+        url: 'https://example.com/page',
         active: true
       }])),
       get: vi.fn((tabId: number) => Promise.resolve({
         id: tabId,
-        url: 'https://example.com/test',
+        url: 'https://example.com/page',
         active: true
       })),
       onActivated: {
@@ -124,7 +132,7 @@ global.chrome = {
     query: vi.fn(((queryInfo: any, callback?: any) => {
       const tabs = [{
         id: 1,
-        url: 'https://example.com/test',
+        url: 'https://example.com/page',
         active: true
       }];
       if (callback) {
@@ -135,7 +143,7 @@ global.chrome = {
     }) as any),
     get: vi.fn((tabId: number) => Promise.resolve({
       id: tabId,
-      url: 'https://example.com/test',
+      url: 'https://example.com/page',
       active: true
     }))
   },
@@ -166,3 +174,12 @@ export const setMockStorage = (data: Record<string, any>) => {
 
 // Helper to get current mock storage
 export const getMockStorage = () => ({ ...mockStorage });
+
+// Helper to flush microtask queue (helps prevent act warnings)
+export const flushMicrotasks = () => {
+  return new Promise(resolve => {
+    queueMicrotask(() => {
+      queueMicrotask(() => resolve(undefined));
+    });
+  });
+};

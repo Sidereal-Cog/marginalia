@@ -70,35 +70,53 @@ export default function App() {
 
   // Update context when tab changes
   useEffect(() => {
+    let isMounted = true;
+
     const updateContext = async () => {
       const newContext = await getCurrentTabContext();
-      setContext(newContext);
+      if (isMounted) {
+        setContext(newContext);
+      }
     };
 
     updateContext();
     const unregister = onTabContextChange(updateContext);
-    return unregister;
+
+    return () => {
+      isMounted = false;
+      unregister();
+    };
   }, []);
 
   // Load notes when context or tab changes
   useEffect(() => {
+    let isMounted = true;
+
     const loadScopeNotes = async () => {
       if (!context || !isAuthenticated) return;
-      
+
       const currentScope = tabs[tabValue].scope;
       const loadedNotes = await loadNotes(currentScope, context);
-      
-      setNotes(prev => ({
-        ...prev,
-        [currentScope]: loadedNotes
-      }));
+
+      if (isMounted) {
+        setNotes(prev => ({
+          ...prev,
+          [currentScope]: loadedNotes
+        }));
+      }
     };
 
     loadScopeNotes();
-  }, [context, tabValue, isAuthenticated]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [context, tabValue, isAuthenticated, tabs]);
 
   // Load badge counts for all scopes when context changes
   useEffect(() => {
+    let isMounted = true;
+
     const loadAllScopeCounts = async () => {
       if (!context || !isAuthenticated) return;
 
@@ -110,10 +128,16 @@ export default function App() {
         allNotes[scope] = scopeNotes;
       }
 
-      setNotes(allNotes);
+      if (isMounted) {
+        setNotes(allNotes);
+      }
     };
 
     loadAllScopeCounts();
+
+    return () => {
+      isMounted = false;
+    };
   }, [context, isAuthenticated]);
 
   // Subscribe to real-time updates from Firebase
@@ -207,7 +231,7 @@ export default function App() {
     // Update toolbar badge
     try {
       await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
-    } catch (error) {
+    } catch (_error) {
       // Ignore if background script isn't available
     }
 
@@ -237,7 +261,7 @@ export default function App() {
     // Update toolbar badge
     try {
       await browser.runtime.sendMessage({ type: 'UPDATE_BADGE' });
-    } catch (error) {
+    } catch (_error) {
       // Ignore if background script isn't available
     }
 

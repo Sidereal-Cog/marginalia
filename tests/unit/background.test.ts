@@ -9,10 +9,8 @@ vi.mock('../../src/firebaseConfig', () => ({
 }));
 
 // Mock authService
-let mockOnAuthChangeCallback: ((user: any) => void) | null = null;
 vi.mock('../../src/authService', () => ({
-  onAuthChange: vi.fn((callback) => {
-    mockOnAuthChangeCallback = callback;
+  onAuthChange: vi.fn((_callback) => {
     return () => {}; // cleanup function
   }),
   getCurrentUserId: vi.fn(() => 'test-user-id')
@@ -36,7 +34,7 @@ vi.mock('../../src/sidebarLogic', () => ({
 
 // Import after mocks
 const { formatBadgeText, clearBadge, updateBadge } = await import('../../src/background');
-const { loadNotes, getCurrentTabContext } = await import('../../src/sidebarLogic');
+const { loadNotes } = await import('../../src/sidebarLogic');
 
 describe('background - Badge functionality', () => {
   beforeEach(() => {

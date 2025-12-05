@@ -13,7 +13,8 @@ vi.mock('firebase/firestore', () => ({
   doc: (...args: any[]) => mockDoc(...args),
   setDoc: (...args: any[]) => mockSetDoc(...args),
   getDoc: (...args: any[]) => mockGetDoc(...args),
-  onSnapshot: (...args: any[]) => mockOnSnapshot(...args)
+  onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
+  serverTimestamp: vi.fn(() => ({ _type: 'serverTimestamp' }))
 }));
 
 // Mock firebaseConfig
@@ -80,7 +81,7 @@ describe('FirebaseSync', () => {
               text: 'Test note'
             })
           ]),
-          updatedAt: expect.any(Number)
+          updatedAt: expect.any(Object)
         })
       );
     });
@@ -92,7 +93,7 @@ describe('FirebaseSync', () => {
         mockDocRef,
         expect.objectContaining({
           notes: [],
-          updatedAt: expect.any(Number)
+          updatedAt: expect.any(Object)
         })
       );
     });

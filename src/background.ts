@@ -118,7 +118,7 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
   // Silently ignore if sidebar isn't open
   try {
     await browser.runtime.sendMessage(message);
-  } catch (error) {
+  } catch (_error) {
     // Expected when sidebar isn't open - ignore
   }
 
@@ -143,7 +143,7 @@ browser.tabs.onUpdated.addListener(async (
     // Silently ignore if sidebar isn't open
     try {
       browser.runtime.sendMessage(message);
-    } catch (error) {
+    } catch (_error) {
       // Expected when sidebar isn't open - ignore
     }
 
