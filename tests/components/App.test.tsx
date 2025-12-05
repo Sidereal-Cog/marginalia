@@ -88,7 +88,7 @@ describe( 'App', () => {
     describe('Loading state', () => {
       it('should show loading indicator while auth initializes', async () => {
         // Mock onAuthChange to not call callback immediately
-        const mockOnAuthChange = vi.fn((callback) => {
+        const mockOnAuthChange = vi.fn((_callback) => {
           // Don't call callback - simulate waiting for auth
           return vi.fn(); // Return unsubscribe
         });
